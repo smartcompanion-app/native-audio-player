@@ -1,8 +1,9 @@
 {
-  "name": "capacitor-app",
+  "name": "capacitor-example-app",
   "version": "1.0.0",
-  "description": "An Amazing Capacitor App",
+  "description": "Usage Example Native Audio Player",
   "main": "index.js",
+  "type": "module",
   "keywords": [
     "capacitor",
     "mobile"
@@ -13,16 +14,16 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@capacitor/core": "latest",
-    "@capacitor/camera": "latest",
-    "@capacitor/splash-screen": "latest",
-    "@smartcompanion/native-audio-player": "file:..",
-    "@capacitor/ios": "^5.0.0",
-    "@capacitor/android": "^5.0.0"
+    "@capacitor/android": "^7.0.1",
+    "@capacitor/core": "^7.0.1",
+    "@capacitor/filesystem": "^7.0.0",
+    "@capacitor/ios": "^7.0.1",
+    "@capacitor/splash-screen": "^7.0.0",
+    "@smartcompanion/native-audio-player": "file:.."
   },
   "devDependencies": {
-    "@capacitor/cli": "latest",
-    "vite": "^2.9.13"
+    "@capacitor/cli": "^7.0.1",
+    "vite": "^6.2.0"
   },
   "author": "",
   "license": "ISC"
