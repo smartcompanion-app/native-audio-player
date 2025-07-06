@@ -47,7 +47,7 @@ repositories {
     mavenCentral()
 }
 
-def media3_version = "1.5.1"
+def media3_version = "1.7.1"
 
 dependencies {
     implementation fileTree(dir: 'libs', include: ['*.jar'])
