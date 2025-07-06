@@ -17,7 +17,7 @@
     "SmartcompanionNativeAudioPlayer.podspec"
   ],
   "author": "Stefan Huber",
-  "license": "MIT",
+  "license": "BSD-2-Clause",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/smartcompanion-io/native-audio-player.git"
