@@ -1,0 +1,61 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-15
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Set version from tag to package.json
+        run: |
+          TAG_VERSION="${GITHUB_REF#refs/tags/v}"
+          if [ -f "package.json" ]; then
+            npm version --no-git-tag-version "$TAG_VERSION"
+          fi
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build packages
+        run: npm run build
+
+      - name: Run tests
+        run: npm test
+
+      - name: Publish all packages
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          for pkg in packages/*; do
+            if [ -f "$pkg/package.json" ]; then
+              cd "$pkg"
+              npm publish --access public
+              cd -
+            fi
+          done
+
+      - name: Add package.json changes to git
+        run: |
+          TAG_VERSION="${GITHUB_REF#refs/tags/v}"
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add package.json
+          git commit -m "chore: set version to $TAG_VERSION"
+          git tag -f "v$TAG_VERSION"
+          git push origin HEAD:refs/heads/main --follow-tags
+          git push origin -f "v$TAG_VERSION"

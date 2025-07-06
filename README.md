@@ -1,13 +1,26 @@
 # native-audio-player
 
-Play Native Audio from a Capacitor App
+Play native audio from a Capacitor app. Features:
+
+ - Toggle between `Speaker` and `Earpiece` as audio output
+ - Audio keeps playing in the background, when app is minimized
+ - Native players in notifications and lock screens
 
 ## Install
 
 ```bash
-npm install native-audio-player
+npm install @smartcompanion/native-audio-player
 npx cap sync
 ```
+
+## Example
+
+In folder `./example` a full usage example is available. This example is also used for manual testing.
+
+<div style="display:grid; column-gap:20px; grid-template-columns: 1fr 1fr">
+  <img style="border-radius:20px; border: 1px solid black" src="docs/demo-app-screen.png" alt="Demo App Screen" />
+  <img style="border-radius:20px; border: 1px solid black" src="docs/native-audio-player.png" alt="Native Audio Player Android" />
+</div>
 
 ## API
 
@@ -39,6 +52,8 @@ npx cap sync
 setEarpiece() => Promise<void>
 ```
 
+Set the audio output to the earpiece.
+
 --------------------
 
 
@@ -47,6 +62,8 @@ setEarpiece() => Promise<void>
 ```typescript
 setSpeaker() => Promise<void>
 ```
+
+Set the audio output to the speaker.
 
 --------------------
 
@@ -57,9 +74,11 @@ setSpeaker() => Promise<void>
 start(options: StartOptions) => Promise<{ id: string; }>
 ```
 
-| Param         | Type                                                  |
-| ------------- | ----------------------------------------------------- |
-| **`options`** | <code><a href="#startoptions">StartOptions</a></code> |
+Initialize the audio player with a list of audio items.
+
+| Param         | Type                                                  | Description                                  |
+| ------------- | ----------------------------------------------------- | -------------------------------------------- |
+| **`options`** | <code><a href="#startoptions">StartOptions</a></code> | - The options for starting the audio player. |
 
 **Returns:** <code>Promise&lt;{ id: string; }&gt;</code>
 
@@ -72,6 +91,8 @@ start(options: StartOptions) => Promise<{ id: string; }>
 stop() => Promise<void>
 ```
 
+Stop the currently playing audio item and clear the playlist.
+
 --------------------
 
 
@@ -80,6 +101,8 @@ stop() => Promise<void>
 ```typescript
 play() => Promise<void>
 ```
+
+Play the currently selected audio item.
 
 --------------------
 
@@ -90,6 +113,8 @@ play() => Promise<void>
 pause() => Promise<void>
 ```
 
+Pause the currently playing audio item.
+
 --------------------
 
 
@@ -98,6 +123,8 @@ pause() => Promise<void>
 ```typescript
 select(options: { id: string; }) => Promise<{ id: string; }>
 ```
+
+Select an audio item from the playlist by its id.
 
 | Param         | Type                         |
 | ------------- | ---------------------------- |
@@ -114,6 +141,8 @@ select(options: { id: string; }) => Promise<{ id: string; }>
 next() => Promise<{ id: string; }>
 ```
 
+Skip to the next audio item in the playlist.
+
 **Returns:** <code>Promise&lt;{ id: string; }&gt;</code>
 
 --------------------
@@ -125,6 +154,8 @@ next() => Promise<{ id: string; }>
 previous() => Promise<{ id: string; }>
 ```
 
+Skip to the previous audio item in the playlist.
+
 **Returns:** <code>Promise&lt;{ id: string; }&gt;</code>
 
 --------------------
@@ -135,6 +166,8 @@ previous() => Promise<{ id: string; }>
 ```typescript
 seekTo(options: { position: number; }) => Promise<void>
 ```
+
+Seek to a specific position in the currently playing audio item.
 
 | Param         | Type                               |
 | ------------- | ---------------------------------- |
@@ -149,6 +182,8 @@ seekTo(options: { position: number; }) => Promise<void>
 getDuration() => Promise<{ value: number; }>
 ```
 
+Get the duration of the current audio item in seconds.
+
 **Returns:** <code>Promise&lt;{ value: number; }&gt;</code>
 
 --------------------
@@ -160,6 +195,8 @@ getDuration() => Promise<{ value: number; }>
 getPosition() => Promise<{ value: number; }>
 ```
 
+Get the current position of the audio item in seconds.
+
 **Returns:** <code>Promise&lt;{ value: number; }&gt;</code>
 
 --------------------
@@ -170,6 +207,9 @@ getPosition() => Promise<{ value: number; }>
 ```typescript
 addListener(eventName: 'update', listener: (result: { state: 'playing' | 'paused' | 'skip' | 'completed'; id: string; }) => void) => Promise<PluginListenerHandle>
 ```
+
+Add an event listener for the update event. The listener should accept an event object
+containing the current state and id of the audio item.
 
 | Param           | Type                                                                                                     |
 | --------------- | -------------------------------------------------------------------------------------------------------- |
@@ -186,20 +226,24 @@ addListener(eventName: 'update', listener: (result: { state: 'playing' | 'paused
 
 #### StartOptions
 
-| Prop        | Type                |
-| ----------- | ------------------- |
-| **`items`** | <code>Item[]</code> |
+Options for starting the audio player.
+
+| Prop        | Type                | Description                                                  |
+| ----------- | ------------------- | ------------------------------------------------------------ |
+| **`items`** | <code>Item[]</code> | A list of audio items to be initialized in the audio player. |
 
 
 #### Item
 
-| Prop           | Type                |
-| -------------- | ------------------- |
-| **`id`**       | <code>string</code> |
-| **`title`**    | <code>string</code> |
-| **`subtitle`** | <code>string</code> |
-| **`audioUri`** | <code>string</code> |
-| **`imageUri`** | <code>string</code> |
+Represents an audio item in the playlist.
+
+| Prop           | Type                | Description                                                                         |
+| -------------- | ------------------- | ----------------------------------------------------------------------------------- |
+| **`id`**       | <code>string</code> | The unique identifier for the audio item.                                           |
+| **`title`**    | <code>string</code> | The title of the audio item, which is e.g. displayed in the notification player.    |
+| **`subtitle`** | <code>string</code> | The subtitle of the audio item, which is e.g. displayed in the notification player. |
+| **`audioUri`** | <code>string</code> | The local file URI of the audio file.                                               |
+| **`imageUri`** | <code>string</code> | The local file URI of the image associated with the audio item.                     |
 
 
 #### PluginListenerHandle
