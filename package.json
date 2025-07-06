@@ -12,8 +12,9 @@
     "dist/",
     "ios/Sources",
     "ios/Tests",
+    "ios/Plugin/",
     "Package.swift",
-    "NativeAudioPlayer.podspec"
+    "SmartcompanionNativeAudioPlayer.podspec"
   ],
   "author": "Stefan Huber",
   "license": "MIT",
