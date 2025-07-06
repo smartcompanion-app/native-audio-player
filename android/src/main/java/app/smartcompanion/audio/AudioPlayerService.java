@@ -3,7 +3,6 @@ package app.smartcompanion.audio;
 import android.annotation.SuppressLint;
 import android.os.Bundle;
 import android.util.Log;
-
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.media3.common.AudioAttributes;
@@ -25,25 +24,18 @@ public class AudioPlayerService extends MediaSessionService {
 
     protected MediaSession mediaSession;
 
-    protected MediaSession.Callback mediaSessionCallback = new  MediaSession.Callback() {
-
+    protected MediaSession.Callback mediaSessionCallback = new MediaSession.Callback() {
         @NonNull
         @Override
-        public MediaSession.ConnectionResult onConnect(
-            @NonNull MediaSession session,
-            @NonNull MediaSession.ControllerInfo controller
-        ) {
-            MediaSession.ConnectionResult connectionResult =  MediaSession.Callback.super.onConnect(session, controller);
+        public MediaSession.ConnectionResult onConnect(@NonNull MediaSession session, @NonNull MediaSession.ControllerInfo controller) {
+            MediaSession.ConnectionResult connectionResult = MediaSession.Callback.super.onConnect(session, controller);
 
-            SessionCommands sessionCommands = connectionResult
-                .availableSessionCommands
+            SessionCommands sessionCommands = connectionResult.availableSessionCommands
                 .buildUpon()
                 .add(new SessionCommand("CHANNEL", new Bundle()))
                 .build();
 
-            return MediaSession.ConnectionResult.accept(
-                sessionCommands, connectionResult.availablePlayerCommands
-            );
+            return MediaSession.ConnectionResult.accept(sessionCommands, connectionResult.availablePlayerCommands);
         }
 
         @NonNull
@@ -68,9 +60,7 @@ public class AudioPlayerService extends MediaSessionService {
             oldPlayer.release();
             oldPlayer = null;
 
-            return Futures.immediateFuture(
-                new SessionResult(SessionResult.RESULT_SUCCESS)
-            );
+            return Futures.immediateFuture(new SessionResult(SessionResult.RESULT_SUCCESS));
         }
     };
 
@@ -83,8 +73,7 @@ public class AudioPlayerService extends MediaSessionService {
     }
 
     public AudioAttributes getAudioAttributes(String channel) {
-        AudioAttributes.Builder builder = new AudioAttributes.Builder()
-            .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC);
+        AudioAttributes.Builder builder = new AudioAttributes.Builder().setContentType(C.AUDIO_CONTENT_TYPE_MUSIC);
 
         if (channel.equals("earpiece")) {
             builder.setUsage(C.USAGE_VOICE_COMMUNICATION);
@@ -112,9 +101,7 @@ public class AudioPlayerService extends MediaSessionService {
     @Override
     public void onCreate() {
         super.onCreate();
-        mediaSession = new MediaSession.Builder(this, getPlayer("speaker"))
-            .setCallback(mediaSessionCallback)
-            .build();
+        mediaSession = new MediaSession.Builder(this, getPlayer("speaker")).setCallback(mediaSessionCallback).build();
     }
 
     @Override
@@ -124,5 +111,4 @@ public class AudioPlayerService extends MediaSessionService {
         mediaSession = null;
         super.onDestroy();
     }
-
 }

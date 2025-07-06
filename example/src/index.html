@@ -1,48 +1,45 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en" dir="ltr">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Awesome Capacitor App</title>
+    <meta
+      name="viewport"
+      content="viewport-fit=cover, width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
+    <meta name="format-detection" content="telephone=no" />
+    <meta name="msapplication-tap-highlight" content="no" />
 
-<head>
-  <meta charset="UTF-8" />
-  <title>Awesome Capacitor App</title>
-  <meta name="viewport"
-    content="viewport-fit=cover, width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <meta name="format-detection" content="telephone=no" />
-  <meta name="msapplication-tap-highlight" content="no" />
+    <link rel="icon" type="image/x-icon" href="./assets/icon/favicon.ico" />
+    <link rel="manifest" href="./manifest.json" />
+    <link rel="stylesheet" href="./css/style.css" />
+    <meta name="theme-color" content="#31d53d" />
 
-  <link rel="icon" type="image/x-icon" href="./assets/icon/favicon.ico" />
-  <link rel="manifest" href="./manifest.json" />
-  <link rel="stylesheet" href="./css/style.css" />
-  <meta name="theme-color" content="#31d53d" />
+    <script src="./js/start.js" type="module" defer></script>
+  </head>
 
-  <script src="./js/start.js" type="module" defer></script>
-</head>
+  <body>
+    <main>
+      <div id="speaker" class="controls">
+        <button id="set-earpiece">EARPIECE</button>
+        <button id="set-speaker">SPEAKER</button>
+      </div>
 
-<body>
+      <div id="player" class="controls">
+        <button id="prev" disabled>PREV</button>
+        <button id="play-pause" disabled>PLAY</button>
+        <button id="next" disabled>NEXT</button>
+      </div>
 
-  <main>
-    <div id="speaker" class="controls">
-      <button id="set-earpiece">EARPIECE</button>
-      <button id="set-speaker">SPEAKER</button>
-    </div>
+      <div class="controls">
+        <input id="position" min="0" max="100" type="range" value="0" disabled />
+      </div>
 
-    <div id="player" class="controls">
-      <button id="prev" disabled>PREV</button>
-      <button id="play-pause" disabled>PLAY</button>
-      <button id="next" disabled>NEXT</button>      
-    </div>
+      <div id="select"></div>
 
-    <div class="controls">
-      <input id="position" min="0" max="100" type="range" value="0" disabled>
-    </div>
-
-    <div id="select">
-    </div>
-
-    <div class="controls">
-      <button disabled id="start-stop">STOP</button>
-    </div>
-  </main>
-
-</body>
-
+      <div class="controls">
+        <button disabled id="start-stop">STOP</button>
+      </div>
+    </main>
+  </body>
 </html>

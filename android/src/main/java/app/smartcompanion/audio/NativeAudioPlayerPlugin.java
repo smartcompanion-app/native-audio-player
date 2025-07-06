@@ -27,8 +27,7 @@ import java.util.Objects;
     permissions = {
         @Permission(
             strings = {
-                Manifest.permission.MODIFY_AUDIO_SETTINGS,
-                Manifest.permission.FOREGROUND_SERVICE
+                Manifest.permission.MODIFY_AUDIO_SETTINGS, Manifest.permission.FOREGROUND_SERVICE
                 //Manifest.permission.FOREGROUND_SERVICE_ME
             }
         )
@@ -43,7 +42,6 @@ public class NativeAudioPlayerPlugin extends Plugin {
     protected List<MediaItem> mediaItems;
 
     protected Player.Listener playerListener = new Player.Listener() {
-
         @Override
         public void onMediaItemTransition(@Nullable MediaItem mediaItem, int reason) {
             if (Player.MEDIA_ITEM_TRANSITION_REASON_AUTO == reason) {
@@ -64,7 +62,10 @@ public class NativeAudioPlayerPlugin extends Plugin {
         @Override
         public void onIsPlayingChanged(boolean isPlaying) {
             try {
-                JSObject json = nativeAudioPlayer.prepareUpdateEvent(isPlaying ? "playing" : "paused", Objects.requireNonNull(mediaController.getCurrentMediaItem()));
+                JSObject json = nativeAudioPlayer.prepareUpdateEvent(
+                    isPlaying ? "playing" : "paused",
+                    Objects.requireNonNull(mediaController.getCurrentMediaItem())
+                );
                 notifyListeners("update", json);
             } catch (Exception e) {
                 Log.e("NATIVE_AUDIO_PLAYER", "Could not trigger play/pause event: " + e.getMessage());
@@ -77,7 +78,10 @@ public class NativeAudioPlayerPlugin extends Plugin {
 
             if (playbackState == Player.STATE_ENDED) {
                 try {
-                    JSObject json = nativeAudioPlayer.prepareUpdateEvent("completed", Objects.requireNonNull(mediaController.getCurrentMediaItem()));
+                    JSObject json = nativeAudioPlayer.prepareUpdateEvent(
+                        "completed",
+                        Objects.requireNonNull(mediaController.getCurrentMediaItem())
+                    );
                     notifyListeners("update", json);
                 } catch (Exception e) {
                     Log.e("NATIVE_AUDIO_PLAYER", "Could not trigger ended event: " + e.getMessage());
@@ -91,32 +95,33 @@ public class NativeAudioPlayerPlugin extends Plugin {
         this.stop(null);
     }
 
-    @PluginMethod()
+    @PluginMethod
     public void start(PluginCall call) {
         Context context = this.getContext();
         SessionToken sessionToken = new SessionToken(context, new ComponentName(context, AudioPlayerService.class));
-        ListenableFuture<MediaController> controllerFuture = new MediaController.Builder(context, sessionToken)
-            .buildAsync();
+        ListenableFuture<MediaController> controllerFuture = new MediaController.Builder(context, sessionToken).buildAsync();
 
         mediaItems = nativeAudioPlayer.fromJson(call.getData());
 
-        controllerFuture.addListener(() -> {
-            try {
-                mediaController = controllerFuture.get();
-                //mediaController.setRepeatMode(Player.REPEAT_MODE_OFF);
-                mediaController.setMediaItems(mediaItems);
+        controllerFuture.addListener(
+            () -> {
+                try {
+                    mediaController = controllerFuture.get();
+                    //mediaController.setRepeatMode(Player.REPEAT_MODE_OFF);
+                    mediaController.setMediaItems(mediaItems);
 
-                registerPlayerEvents();
-                call.resolve(nativeAudioPlayer.prepareIdItem(Objects.requireNonNull(mediaController.getCurrentMediaItem())));
-            } catch (Exception e) {
-                Log.e("NATIVE_AUDIO_PLAYER", "Could not create media player: " + e.getMessage());
-                call.reject("Could not create media player");
-            }
-        }, MoreExecutors.directExecutor());
+                    registerPlayerEvents();
+                    call.resolve(nativeAudioPlayer.prepareIdItem(Objects.requireNonNull(mediaController.getCurrentMediaItem())));
+                } catch (Exception e) {
+                    Log.e("NATIVE_AUDIO_PLAYER", "Could not create media player: " + e.getMessage());
+                    call.reject("Could not create media player");
+                }
+            },
+            MoreExecutors.directExecutor()
+        );
     }
 
-
-    @PluginMethod()
+    @PluginMethod
     public void stop(PluginCall call) {
         try {
             if (mediaController != null) {
@@ -134,7 +139,7 @@ public class NativeAudioPlayerPlugin extends Plugin {
         }
     }
 
-    @PluginMethod()
+    @PluginMethod
     public void play(PluginCall call) {
         if (mediaController != null) {
             mediaController.play();
@@ -142,7 +147,7 @@ public class NativeAudioPlayerPlugin extends Plugin {
         call.resolve();
     }
 
-    @PluginMethod()
+    @PluginMethod
     public void pause(PluginCall call) {
         if (mediaController != null) {
             mediaController.pause();
@@ -150,7 +155,7 @@ public class NativeAudioPlayerPlugin extends Plugin {
         call.resolve();
     }
 
-    @PluginMethod()
+    @PluginMethod
     public void select(PluginCall call) {
         String id = call.getString("id");
 
@@ -167,7 +172,7 @@ public class NativeAudioPlayerPlugin extends Plugin {
         call.resolve();
     }
 
-    @PluginMethod()
+    @PluginMethod
     public void next(PluginCall call) {
         if (mediaController != null) {
             mediaController.seekToNextMediaItem();
@@ -175,7 +180,7 @@ public class NativeAudioPlayerPlugin extends Plugin {
         call.resolve();
     }
 
-    @PluginMethod()
+    @PluginMethod
     public void previous(PluginCall call) {
         if (mediaController != null) {
             mediaController.seekToPreviousMediaItem();
@@ -183,17 +188,17 @@ public class NativeAudioPlayerPlugin extends Plugin {
         call.resolve();
     }
 
-    @PluginMethod()
+    @PluginMethod
     public void seekTo(PluginCall call) {
         int position = call.getInt("position", 0); // position in seconds
         Log.i("NATIVE_AUDIO_PLAYER", " try to seek to position " + position);
         if (mediaController != null) {
-            mediaController.seekTo( position * 1000L);
+            mediaController.seekTo(position * 1000L);
         }
         call.resolve();
     }
 
-    @PluginMethod()
+    @PluginMethod
     public void getPosition(PluginCall call) {
         JSObject result = new JSObject();
         if (mediaController != null) {
@@ -202,7 +207,7 @@ public class NativeAudioPlayerPlugin extends Plugin {
         call.resolve(result);
     }
 
-    @PluginMethod()
+    @PluginMethod
     public void getDuration(PluginCall call) {
         JSObject result = new JSObject();
         if (mediaController != null && mediaController.getDuration() > 0) {
@@ -213,7 +218,7 @@ public class NativeAudioPlayerPlugin extends Plugin {
         call.resolve(result);
     }
 
-    @PluginMethod()
+    @PluginMethod
     public void setEarpiece(PluginCall call) {
         if (mediaController != null) {
             Bundle bundle = new Bundle();
@@ -223,7 +228,7 @@ public class NativeAudioPlayerPlugin extends Plugin {
         call.resolve();
     }
 
-    @PluginMethod()
+    @PluginMethod
     public void setSpeaker(PluginCall call) {
         if (mediaController != null) {
             Bundle bundle = new Bundle();
@@ -245,5 +250,4 @@ public class NativeAudioPlayerPlugin extends Plugin {
             mediaController.removeListener(this.playerListener);
         }
     }
-
 }

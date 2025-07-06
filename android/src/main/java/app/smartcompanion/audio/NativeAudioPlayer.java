@@ -5,12 +5,12 @@ import android.util.Log;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaMetadata;
 import com.getcapacitor.JSObject;
-import org.json.JSONArray;
-import org.json.JSONException;
-import org.json.JSONObject;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 public class NativeAudioPlayer {
 
@@ -40,7 +40,8 @@ public class NativeAudioPlayer {
                     .setSubtitle(json.getString("subtitle"))
                     .setArtist(json.getString("subtitle"))
                     .setArtworkUri(Uri.parse(json.getString("imageUri")))
-                    .build())
+                    .build()
+            )
             .build();
     }
 
@@ -56,5 +57,4 @@ public class NativeAudioPlayer {
         json.put("id", mediaItem.mediaId);
         return JSObject.fromJSONObject(json);
     }
-
 }

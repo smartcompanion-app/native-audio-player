@@ -3,15 +3,13 @@ package app.smartcompanion.audio;
 import androidx.media3.common.MediaItem;
 import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
-
+import java.util.List;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.robolectric.RobolectricTestRunner;
-
-import java.util.List;
 
 @RunWith(RobolectricTestRunner.class)
 public class NativeAudioPlayerTest {
@@ -56,5 +54,4 @@ public class NativeAudioPlayerTest {
         Assert.assertEquals("item2", items.get(1).mediaId);
         Assert.assertEquals("title item2", items.get(1).mediaMetadata.title);
     }
-
 }
