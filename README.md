@@ -13,6 +13,8 @@ npm install @smartcompanion/native-audio-player
 npx cap sync
 ```
 
+ > for iOS: Audio has to be added as Background Mode within Signing & Capabilities of the app, in order to keep audio playing in the background 
+
 ## Example
 
 In folder `./example` a full usage example is available. This example is also used for manual testing.
