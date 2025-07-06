@@ -37,17 +37,11 @@ jobs:
       - name: Run tests
         run: npm test
 
-      - name: Publish all packages
+      - name: Publish package
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
-          for pkg in packages/*; do
-            if [ -f "$pkg/package.json" ]; then
-              cd "$pkg"
-              npm publish --access public
-              cd -
-            fi
-          done
+          npm publish --access public
 
       - name: Add package.json changes to git
         run: |
