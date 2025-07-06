@@ -17,10 +17,9 @@ npx cap sync
 
 In folder `./example` a full usage example is available. This example is also used for manual testing.
 
-<div style="display:grid; column-gap:20px; grid-template-columns: 1fr 1fr">
-  <img style="border-radius:20px; border: 1px solid black" src="docs/demo-app-screen.png" alt="Demo App Screen" />
-  <img style="border-radius:20px; border: 1px solid black" src="docs/native-audio-player.png" alt="Native Audio Player Android" />
-</div>
+| Demo App | Native Audio Player |
+|---|---|
+| ![Demo App Screen](docs/demo-app-screen.png) | ![Native Audio Player Android](docs/native-audio-player.png) |
 
 ## API
 
