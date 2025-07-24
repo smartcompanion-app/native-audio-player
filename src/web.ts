@@ -1,10 +1,55 @@
 import { WebPlugin } from '@capacitor/core';
-
 import type { NativeAudioPlayerPlugin, StartOptions, Item } from './definitions';
+
+const updateMediaSessionMetadata = (item: Item, duration: number) => {
+  if ("mediaSession" in navigator) {
+    // @ts-ignore
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: item.title,
+      artist: item.subtitle,
+      album: item.subtitle,
+      artwork: [{ src: item.imageUri }]
+    });
+
+    // @ts-ignore
+    navigator.mediaSession.setPositionState({
+      position: 0,
+      duration: duration,
+      playbackRate: 1.0,
+    })
+  }
+};
 
 export class NativeAudioPlayerWeb extends WebPlugin implements NativeAudioPlayerPlugin {
   protected items: Item[] = [];
   protected currentIndex = 0;
+  
+  constructor() {
+    super();
+
+    if ("mediaSession" in navigator) {
+      // @ts-ignore
+      navigator.mediaSession.setActionHandler('play', () => {
+        this.play();
+      });
+      // @ts-ignore
+      navigator.mediaSession.setActionHandler('pause', () => {
+        this.pause();
+      });
+      // @ts-ignore
+      navigator.mediaSession.setActionHandler('nexttrack', () => {
+        this.next();
+      });
+      // @ts-ignore
+      navigator.mediaSession.setActionHandler('previoustrack', () => {
+        this.previous();
+      });
+      // @ts-ignore
+      navigator.mediaSession.setActionHandler('seekto', (event) => {
+        this.seekTo({ position: event.seekTime as number });
+      });
+    }
+  }
 
   async setEarpiece(): Promise<void> {
     console.log('setEarpiece not implemented on the web');
@@ -101,6 +146,7 @@ export class NativeAudioPlayerWeb extends WebPlugin implements NativeAudioPlayer
 
       const audio = document.createElement('audio');
       audio.addEventListener('loadedmetadata', () => {
+        updateMediaSessionMetadata(item, audio.duration);
         resolve({ id: item.id });
       });
       audio.addEventListener('ended', () => {
