@@ -1,7 +1,6 @@
 import type { PluginListenerHandle } from '@capacitor/core';
 
 export interface NativeAudioPlayerPlugin {
-  
   /**
    * Set the audio output to the earpiece.
    * @returns {Promise<void>} A promise that resolves when the audio output is set to the earpiece.
