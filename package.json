@@ -1,6 +1,6 @@
 {
   "name": "@smartcompanion/native-audio-player",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Play Native Audio from a Capacitor App",
   "main": "dist/plugin.cjs.js",
   "module": "dist/esm/index.js",
@@ -16,7 +16,7 @@
     "Package.swift",
     "SmartcompanionNativeAudioPlayer.podspec"
   ],
-  "author": "Stefan Huber",
+  "author": "SmartCompanion <hello@smartcompanion.app>",
   "license": "BSD-2-Clause",
   "repository": {
     "type": "git",
@@ -28,11 +28,12 @@
   "keywords": [
     "capacitor",
     "plugin",
-    "native"
+    "native",
+    "audio-player"
   ],
   "scripts": {
     "verify": "npm run verify:ios && npm run verify:android && npm run verify:web",
-    "verify:ios": "cd ios && pod install && xcodebuild -workspace Plugin.xcworkspace -scheme Plugin -destination generic/platform=iOS && cd ..",
+    "verify:ios": "xcodebuild -scheme SmartcompanionNativeAudioPlayer -destination generic/platform=iOS",
     "verify:android": "cd android && ./gradlew clean build test && cd ..",
     "verify:web": "npm run build",
     "lint": "npm run eslint && npm run prettier -- --check && npm run swiftlint -- lint",

@@ -5,6 +5,7 @@ Play native audio from a Capacitor app. Features:
  - Toggle between `Speaker` and `Earpiece` as audio output
  - Audio keeps playing in the background, when app is minimized
  - Native players in notifications and lock screens
+ - Support for Android, iOS, Web
 
 ## Install
 
