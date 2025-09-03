@@ -1,11 +1,21 @@
 # native-audio-player
 
-Play native audio from a Capacitor app. Features:
+> Play native audio from a Capacitor app.
+
+## ✨ Features
+
+ Features:
 
  - Toggle between `Speaker` and `Earpiece` as audio output
  - Audio keeps playing in the background, when app is minimized
  - Native players in notifications and lock screens
  - Support for Android, iOS, Web
+
+## Maintainers
+
+| Maintainer  | GitHub                                      | Social                                                          |
+| ----------- | ------------------------------------------- | --------------------------------------------------------------- |
+| Stefan Huber | [stefanhuber](https://github.com/stefanhuber) | [Linkedin](https://www.linkedin.com/in/stefan-huber/) |
 
 ## Install
 
@@ -14,15 +24,20 @@ npm install @smartcompanion/native-audio-player
 npx cap sync
 ```
 
- > for iOS: Audio has to be added as Background Mode within Signing & Capabilities of the app, in order to keep audio playing in the background 
+## Configuration
 
-## Example
+| Platform | Configuration |
+| --- | --- |
+| iOS | Audio has to be added as Background Mode within Signing & Capabilities of the app, in order to keep audio playing in the background |
+| Android | The plugin has a `AndroidManifest.xml`, which includes all configurations | 
+
+## Usage
 
 In folder `./example` a full usage example is available. This example is also used for manual testing.
 
 | Demo App | Native Audio Player |
 |---|---|
-| ![Demo App Screen](docs/demo-app-screen.png) | ![Native Audio Player Android](docs/native-audio-player.png) |
+| ![Demo App Screen](docs/demo-app-screen.png) | ![Native Audio Player (Android)](docs/native-audio-player.png) |
 
 ## API
 
