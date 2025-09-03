@@ -2,11 +2,11 @@
 import PackageDescription
 
 let package = Package(
-    name: "NativeAudioPlayer",
+    name: "SmartcompanionNativeAudioPlayer",
     platforms: [.iOS(.v14)],
     products: [
         .library(
-            name: "NativeAudioPlayer",
+            name: "SmartcompanionNativeAudioPlayer",
             targets: ["NativeAudioPlayerPlugin"])
     ],
     dependencies: [

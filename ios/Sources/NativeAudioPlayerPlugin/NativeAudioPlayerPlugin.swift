@@ -3,7 +3,25 @@ import Capacitor
 import MediaPlayer
 
 @objc(NativeAudioPlayerPlugin)
-public class NativeAudioPlayerPlugin: CAPPlugin {
+public class NativeAudioPlayerPlugin: CAPPlugin, CAPBridgedPlugin {
+    public let identifier = "NativeAudioPlayerPlugin"
+    public let jsName = "NativeAudioPlayer"
+
+    public let pluginMethods: [CAPPluginMethod] = [
+        CAPPluginMethod(name: "start", returnType: CAPPluginReturnPromise),        
+        CAPPluginMethod(name: "play", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "pause", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "select", returnType: CAPPluginReturnPromise),        
+        CAPPluginMethod(name: "next", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "previous", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "stop", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "seekTo", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "getPosition", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "getDuration", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "setEarpiece", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "setSpeaker", returnType: CAPPluginReturnPromise)
+    ]
+
     private var player: NativeAudioPlayer = NativeAudioPlayer([])
     
     private var pauseTarget: Any?
