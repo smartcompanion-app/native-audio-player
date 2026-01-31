@@ -37,6 +37,13 @@ In folder `./example` a full usage example is available. This example is also us
 |---|---|
 | ![Demo App Screen](docs/demo-app-screen.png) | ![Native Audio Player (Android)](docs/native-audio-player.png) |
 
+## Other Audio Player Plugins
+
+ - [@capacitor-community/native-audio](https://github.com/capacitor-community/native-audio)
+ - [@capawesome-team/capacitor-audio-player](https://capawesome.io/plugins/audio-player/)
+ - [@capgo/native-audio](https://github.com/Cap-go/capacitor-native-audio)
+ - [@mediagrid/capacitor-native-audio](https://github.com/mediagrid/capacitor-native-audio)
+
 ## API
 
 <docgen-index>
