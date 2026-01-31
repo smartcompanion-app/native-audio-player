@@ -10,7 +10,7 @@
   "scripts": {
     "start": "vite",
     "build": "vite build",
-    "build:android": "npx cap sync android && cd android && ./gradlew clean build && cd ..",
+    "build:android": "cd android && ./gradlew clean build && cd ..",
     "test:android": "npx wdio run ./wdio.conf.js",
     "preview": "vite preview",
     "postinstall": "patch-package"
