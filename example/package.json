@@ -10,7 +10,10 @@
   "scripts": {
     "start": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "build:android": "cd android && ./gradlew clean build && cd .. && npx cap sync android",
+    "test:android": "npx wdio run ./wdio.conf.js",
+    "preview": "vite preview",
+    "postinstall": "patch-package"
   },
   "dependencies": {
     "@capacitor/android": "^8.0.2",
@@ -22,7 +25,15 @@
   },
   "devDependencies": {
     "@capacitor/cli": "^8.0.2",
-    "vite": "^7.3.1"
+    "@wdio/appium-service": "^9.23.2",
+    "@wdio/cli": "^9.23.2",
+    "@wdio/local-runner": "^9.23.2",
+    "@wdio/mocha-framework": "^9.23.2",
+    "appium": "^3.2.0",
+    "appium-uiautomator2-driver": "^6.7.15",
+    "patch-package": "^8.0.1",
+    "vite": "^7.3.1",
+    "webdriverio": "^9.23.2"
   },
   "author": "SmartCompanion <hello@smartcompanion.app>",
   "license": "BSD-2-Clause"
