@@ -53,6 +53,6 @@ jobs:
       - name: Run Smoke Tests on Android Emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 36
+          api-level: 34
           script: npm run test:android
           working-directory: ./example
