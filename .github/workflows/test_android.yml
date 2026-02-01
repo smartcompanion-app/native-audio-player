@@ -2,6 +2,7 @@ name: ci
 
 on:
   - push
+  - pull_request
 
 permissions:
   contents: read
@@ -50,7 +51,7 @@ jobs:
       - name: Build example Android
         run: npm run build:android
         working-directory: ./example
-      - name: Run Smoke Tests on Android Emulator
+      - name: Run Tests on Android Emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 36

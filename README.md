@@ -31,7 +31,7 @@ npx cap sync
 
 ## Usage
 
-In folder `./example` a full usage example is available. This example is also used for manual testing.
+In folder `./example` a full usage example is available. This example is also used for automatic and manual testing.
 
 | Demo App | Native Audio Player |
 |---|---|
