@@ -16,7 +16,7 @@ export const config = {
   services: [
     ['appium', {
       args: {
-        "allow-insecure": "uiautomator2:chromedriver_autodownload",
+        'allow-insecure': 'uiautomator2:chromedriver_autodownload',
       }
     }]
   ],
