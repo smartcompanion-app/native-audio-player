@@ -1,4 +1,3 @@
-import assert from "node:assert";
 import { browser, driver } from '@wdio/globals'
 
 describe("Native Audio Player Test", () => {
@@ -39,14 +38,29 @@ describe("Native Audio Player Test", () => {
     const itemButton1 = await browser.$('#select > [data-id="1"]');
     const itemButton2 = await browser.$('#select > [data-id="2"]');
 
-    assert.strictEqual("active", await itemButton1.getAttribute("class"));
+    await browser.waitUntil(async function () {
+      return (await itemButton1.getAttribute("class")) === "active"
+    }, {
+      timeout: 5000,
+      timeoutMsg: "Item 1 button did not become active"
+    });
 
     await nextButton.click();
 
-    assert.strictEqual("active", await itemButton2.getAttribute("class"));
+    await browser.waitUntil(async function () {
+      return (await itemButton2.getAttribute("class")) === "active"
+    }, {
+      timeout: 5000,
+      timeoutMsg: "Item 2 button did not become active"
+    });
 
     await prevButton.click();
 
-    assert.strictEqual("active", await itemButton1.getAttribute("class"));
+    await browser.waitUntil(async function () {
+      return (await itemButton1.getAttribute("class")) === "active"
+    }, {
+      timeout: 5000,
+      timeoutMsg: "Item 1 button did not become active"
+    });
   });    
 });
