@@ -1,8 +1,8 @@
 name: ci
 
 on:
-  - pull_request
   - push
+  - pull_request
 
 permissions:
   contents: read
@@ -14,8 +14,8 @@ env:
 jobs:
 
   build:
-    name: Build
-    runs-on: macos-15
+    name: Build and Test
+    runs-on: macos-26
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -38,7 +38,7 @@ jobs:
         run: npm run verify:web
   lint:
     name: Lint
-    runs-on: macos-15
+    runs-on: macos-26
     steps:
       - name: Checkout
         uses: actions/checkout@v4
