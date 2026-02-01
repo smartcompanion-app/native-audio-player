@@ -1,5 +1,6 @@
 export const config = {
   runner: 'local',
+  framework: 'mocha',
   port: 4723,
   capabilities: [
     {
