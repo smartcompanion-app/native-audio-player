@@ -1,0 +1,53 @@
+name: test-ios
+
+on:
+  - push
+  - pull_request
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: 22
+
+jobs:
+
+  build:
+    name: Build and Test
+    runs-on: macos-26
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Install dependencies
+        run: npm ci
+      - name: Build plugin
+        run: npm run build
+      - name: Build iOS
+        run: npm run verify:ios
+      - name: Install example dependencies
+        run: npm ci
+        working-directory: ./example
+      - name: Build example
+        run: npm run build
+        working-directory: ./example
+      - name: Sync Capacitor iOS
+        run: npx cap sync ios
+        working-directory: ./example
+      - name: Build example iOS
+        run: npm run build:ios
+        working-directory: ./example
+      - name: List available simulators
+        run: xcrun simctl list devices
+      - name: Boot iOS Simulator
+        run: |
+          SIMULATOR_ID=$(xcrun simctl list devices | grep "iPhone 16" | grep -v "unavailable" | head -1 | sed 's/.*(\([^)]*\)).*/\1/')
+          echo "Booting simulator: $SIMULATOR_ID"
+          xcrun simctl boot "$SIMULATOR_ID" || true
+          xcrun simctl bootstatus "$SIMULATOR_ID"
+      - name: Run Tests on iOS Simulator
+        run: npm run test:ios
+        working-directory: ./example
