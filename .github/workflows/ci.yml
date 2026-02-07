@@ -43,8 +43,20 @@ jobs:
         working-directory: ./example
       - name: Boot iOS Simulator
         run: |
-          UDID=$(xcrun simctl list devices available | grep "iPhone 16" | grep -v "Plus\|Pro\|e" | head -1 | grep -oE "[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}")
-          echo "Booting simulator with UDID: $UDID"
+          # List available simulators to verify iOS 18.6 is installed
+          xcrun simctl list devices available
+          
+          # Find iPhone 16 with iOS 18.6
+          UDID=$(xcrun simctl list devices available | grep "iOS 18.6" -A 20 | grep "iPhone 16 (" | head -1 | grep -oE "[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}")
+          
+          if [ -z "$UDID" ]; then
+            echo "Error: iPhone 16 with iOS 18.6 not found"
+            echo "Available devices:"
+            xcrun simctl list devices available
+            exit 1
+          fi
+          
+          echo "Booting iPhone 16 (iOS 18.6) with UDID: $UDID"
           xcrun simctl boot "$UDID"
           xcrun simctl bootstatus "$UDID" -b
       - name: Run Tests on iOS Simulator
