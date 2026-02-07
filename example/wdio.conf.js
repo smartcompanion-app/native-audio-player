@@ -10,7 +10,7 @@ export const config = {
       'appium:app': './ios/build/Build/Products/Debug-iphonesimulator/App.app',
       'appium:automationName': 'XCUITest',
       'appium:deviceName': 'iPhone 16',
-      'appium:platformVersion': '18.2',
+      'appium:platformVersion': '26.2',
       'appium:bundleId': 'app.smartcompanion.audio.plugin.example',
       'appium:useNewWDA': false,
       'appium:showXcodeLog': true,
