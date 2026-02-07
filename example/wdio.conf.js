@@ -4,6 +4,8 @@ export const config = {
   runner: 'local',
   framework: 'mocha',
   port: 4723,
+  connectionRetryTimeout: 300000,
+  connectionRetryCount: 3,
   capabilities: [    
     isIOS ? {
       platformName: 'iOS',
@@ -14,6 +16,10 @@ export const config = {
       'appium:bundleId': 'app.smartcompanion.audio.plugin.example',
       'appium:useNewWDA': false,
       'appium:showXcodeLog': true,
+      'appium:wdaStartupRetries': 4,
+      'appium:wdaStartupRetryInterval': 20000,
+      'appium:wdaLaunchTimeout': 120000,
+      'appium:wdaConnectionTimeout': 240000,
     } : {
       platformName: 'Android',
       'appium:app': './android/app/build/outputs/apk/debug/app-debug.apk',
