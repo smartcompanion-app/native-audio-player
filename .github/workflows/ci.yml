@@ -15,7 +15,7 @@ jobs:
 
   test_ios:
     name: Build and Test (iOS)
-    runs-on: macos-26
+    runs-on: macos-15
     steps:
       - name: Checkout
         uses: actions/checkout@v4      
@@ -41,6 +41,12 @@ jobs:
       - name: Build example iOS
         run: npm run build:ios
         working-directory: ./example
+      - name: Boot iOS Simulator
+        run: |
+          UDID=$(xcrun simctl list devices available | grep "iPhone 16" | grep -v "Plus\|Pro\|e" | head -1 | grep -oE "[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}")
+          echo "Booting simulator with UDID: $UDID"
+          xcrun simctl boot "$UDID"
+          xcrun simctl bootstatus "$UDID" -b
       - name: Run Tests on iOS Simulator
         run: npm run test:ios
         working-directory: ./example
