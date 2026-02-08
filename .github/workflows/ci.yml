@@ -59,6 +59,10 @@ jobs:
           echo "Booting iPhone 16 (iOS 18.6) with UDID: $UDID"
           xcrun simctl boot "$UDID"
           xcrun simctl bootstatus "$UDID" -b
+
+          # Wait additional time for data migration and system to settle
+          echo "Waiting for simulator to complete data migration and settle..."
+          sleep 80
       - name: Run Tests on iOS Simulator
         run: npm run test:ios
         working-directory: ./example
