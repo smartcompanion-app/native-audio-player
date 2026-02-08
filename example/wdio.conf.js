@@ -16,6 +16,7 @@ export const config = {
       'appium:bundleId': 'app.smartcompanion.audio.plugin.example',
       'appium:useNewWDA': false,
       'appium:showXcodeLog': true,
+      'appium:simulatorStartupTimeout': 180000,
       'appium:wdaStartupRetries': 4,
       'appium:wdaStartupRetryInterval': 20000,
       'appium:wdaLaunchTimeout': 120000,
