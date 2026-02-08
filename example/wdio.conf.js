@@ -20,6 +20,7 @@ export const config = {
       'appium:wdaStartupRetryInterval': 20000,
       'appium:wdaLaunchTimeout': 120000,
       'appium:wdaConnectionTimeout': 240000,
+      'appium:simulatorStartupTimeout': 180000,
     } : {
       platformName: 'Android',
       'appium:app': './android/app/build/outputs/apk/debug/app-debug.apk',
