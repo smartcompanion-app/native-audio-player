@@ -4,7 +4,7 @@ export const config = {
   runner: 'local',
   framework: 'mocha',
   port: 4723,
-  connectionRetryTimeout: 300000,
+  connectionRetryTimeout: 600000,
   connectionRetryCount: 3,
   capabilities: [    
     isIOS ? {
@@ -17,10 +17,10 @@ export const config = {
       'appium:useNewWDA': false,
       'appium:showXcodeLog': true,
       'appium:wdaStartupRetries': 4,
-      'appium:wdaStartupRetryInterval': 20000,
-      'appium:wdaLaunchTimeout': 120000,
-      'appium:wdaConnectionTimeout': 240000,
-      'appium:simulatorStartupTimeout': 180000,
+      'appium:wdaStartupRetryInterval': 200000,
+      'appium:wdaLaunchTimeout': 600000,
+      'appium:wdaConnectionTimeout': 600000,
+      'appium:simulatorStartupTimeout': 600000,
     } : {
       platformName: 'Android',
       'appium:app': './android/app/build/outputs/apk/debug/app-debug.apk',
