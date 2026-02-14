@@ -13,8 +13,128 @@ env:
 
 jobs:
 
-  build:
-    name: Build and Test
+  test_ios:
+    name: Build and Test (iOS)
+    runs-on: macos-15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4      
+      - name: Set up Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}     
+      - name: Install dependencies
+        run: npm ci
+      - name: Build plugin
+        run: npm run build
+      - name: Build iOS
+        run: npm run verify:ios
+      - name: Install example dependencies
+        run: npm ci
+        working-directory: ./example
+      - name: Build example
+        run: npm run build
+        working-directory: ./example
+      - name : Sync Capacitor iOS
+        run: npx cap sync ios
+        working-directory: ./example
+      - name: Build example iOS
+        run: npm run build:ios
+        working-directory: ./example
+      - name: Boot iOS Simulator
+        run: |
+          # List available simulators to verify iOS 18.6 is installed
+          xcrun simctl list devices available
+          
+          # Find iPhone 16 with iOS 18.6
+          UDID=$(xcrun simctl list devices available | grep "iOS 18.6" -A 20 | grep "iPhone 16 (" | head -1 | grep -oE "[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}")
+          
+          if [ -z "$UDID" ]; then
+            echo "Error: iPhone 16 with iOS 18.6 not found"
+            echo "Available devices:"
+            xcrun simctl list devices available
+            exit 1
+          fi
+          
+          echo "Booting iPhone 16 (iOS 18.6) with UDID: $UDID"
+          xcrun simctl boot "$UDID"
+          xcrun simctl bootstatus "$UDID" -b
+
+          # Wait for simulator to fully settle with polling loop
+          echo "Waiting for simulator to complete data migration and settle..."
+          BOOT_TIMEOUT=600 # 10 minutes
+          start_time=$(date +%s)
+          
+          while true; do
+            output=$(xcrun simctl bootstatus "$UDID" 2>&1)
+            echo "$output"
+            if [[ "$output" == *"Device already booted, nothing to do."* ]]; then
+              echo "✓ Simulator booted successfully"
+              break
+            fi
+            
+            elapsed_time=$(( $(date +%s) - start_time ))
+            if [[ $elapsed_time -ge $BOOT_TIMEOUT ]]; then
+              echo "Error: Timeout waiting for simulator to boot"
+              exit 1
+            fi
+            
+            echo "Waiting for simulator... (${elapsed_time}s elapsed)"
+            sleep 2
+          done
+      - name: Run Tests on iOS Simulator
+        run: npm run test:ios
+        working-directory: ./example
+
+  test_android:
+    name: Build and Test (Android)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Set up Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Set up Java ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: ${{ env.JAVA_VERSION }}
+      - name: Install dependencies
+        run: npm ci
+      - name: Build plugin
+        run: npm run build
+      - name: Build Android
+        run: npm run verify:android
+      - name: Install example dependencies
+        run: npm ci
+        working-directory: ./example
+      - name: Build example
+        run: npm run build
+        working-directory: ./example
+      - name : Sync Capacitor Android
+        run: npx cap sync android
+        working-directory: ./example
+      - name: Build example Android
+        run: npm run build:android
+        working-directory: ./example
+      - name: Run Tests on Android Emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 36
+          target: google_apis
+          arch: x86_64
+          script: npm run test:android
+          working-directory: ./example
+
+  verify_lint:
+    name: Build and Verify
     runs-on: macos-26
     steps:
       - name: Checkout

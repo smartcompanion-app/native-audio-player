@@ -1,9 +1,27 @@
+const isIOS = process.env.APPIUM_PLATFORM === 'ios';
+
 export const config = {
   runner: 'local',
   framework: 'mocha',
   port: 4723,
-  capabilities: [
-    {
+  connectionRetryTimeout: 600000,
+  connectionRetryCount: 3,
+  capabilities: [    
+    isIOS ? {
+      platformName: 'iOS',
+      'appium:app': './ios/build/Build/Products/Debug-iphonesimulator/App.app',
+      'appium:automationName': 'XCUITest',
+      'appium:deviceName': 'iPhone 16',
+      'appium:platformVersion': '18.6',
+      'appium:bundleId': 'app.smartcompanion.audio.plugin.example',
+      'appium:useNewWDA': false,
+      'appium:showXcodeLog': true,
+      'appium:wdaStartupRetries': 4,
+      'appium:wdaStartupRetryInterval': 200000,
+      'appium:wdaLaunchTimeout': 600000,
+      'appium:wdaConnectionTimeout': 600000,
+      'appium:simulatorStartupTimeout': 600000,
+    } : {
       platformName: 'Android',
       'appium:app': './android/app/build/outputs/apk/debug/app-debug.apk',
       'appium:automationName': 'UiAutomator2',
@@ -16,7 +34,7 @@ export const config = {
   services: [
     ['appium', {
       args: {
-        'allow-insecure': 'uiautomator2:chromedriver_autodownload',
+        'allow-insecure': '*:chromedriver_autodownload',
       }
     }]
   ],
