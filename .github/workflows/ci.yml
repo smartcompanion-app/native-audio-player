@@ -60,9 +60,28 @@ jobs:
           xcrun simctl boot "$UDID"
           xcrun simctl bootstatus "$UDID" -b
 
-          # Wait additional time for data migration and system to settle
+          # Wait for simulator to fully settle with polling loop
           echo "Waiting for simulator to complete data migration and settle..."
-          sleep 80
+          BOOT_TIMEOUT=600 # 10 minutes
+          start_time=$(date +%s)
+          
+          while true; do
+            output=$(xcrun simctl bootstatus "$UDID" 2>&1)
+            echo "$output"
+            if [[ "$output" == *"Device already booted, nothing to do."* ]]; then
+              echo "✓ Simulator booted successfully"
+              break
+            fi
+            
+            elapsed_time=$(( $(date +%s) - start_time ))
+            if [[ $elapsed_time -ge $BOOT_TIMEOUT ]]; then
+              echo "Error: Timeout waiting for simulator to boot"
+              exit 1
+            fi
+            
+            echo "Waiting for simulator... (${elapsed_time}s elapsed)"
+            sleep 2
+          done
       - name: Run Tests on iOS Simulator
         run: npm run test:ios
         working-directory: ./example
