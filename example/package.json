@@ -18,15 +18,15 @@
     "postinstall": "patch-package"
   },
   "dependencies": {
-    "@capacitor/android": "^8.0.2",
-    "@capacitor/core": "^8.0.2",
-    "@capacitor/filesystem": "^8.1.0",
-    "@capacitor/ios": "^8.0.2",
-    "@capacitor/splash-screen": "^8.0.0",
+    "@capacitor/android": "^8.4.2",
+    "@capacitor/core": "^8.4.2",
+    "@capacitor/filesystem": "^8.1.2",
+    "@capacitor/ios": "^8.4.2",
+    "@capacitor/splash-screen": "^8.0.2",
     "@smartcompanion/native-audio-player": "file:.."
   },
   "devDependencies": {
-    "@capacitor/cli": "^8.0.2",
+    "@capacitor/cli": "^8.4.2",
     "@wdio/appium-service": "^9.23.2",
     "@wdio/cli": "^9.23.2",
     "@wdio/local-runner": "^9.23.2",
