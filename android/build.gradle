@@ -47,14 +47,14 @@ repositories {
     mavenCentral()
 }
 
-def media3_version = "1.7.1"
+def media3_version = "1.10.1"
 
 dependencies {
     implementation fileTree(dir: 'libs', include: ['*.jar'])
     implementation project(':capacitor-android')
     implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
     testImplementation "junit:junit:$junitVersion"
-    testImplementation "org.robolectric:robolectric:4.10.3"
+    testImplementation "org.robolectric:robolectric:4.15.1"
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
     androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
 

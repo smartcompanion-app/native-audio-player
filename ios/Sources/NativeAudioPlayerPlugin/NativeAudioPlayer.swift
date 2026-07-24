@@ -126,9 +126,9 @@ import MediaPlayer
     func select(_ id: String) -> Bool {
         pause()
         
-        for (i, _) in playerItems.enumerated() {
-            if playerItems[i].id == id {
-                currentIndex = i
+        for index in playerItems.indices {
+            if playerItems[index].id == id {
+                currentIndex = index
                 break
             }
         }
