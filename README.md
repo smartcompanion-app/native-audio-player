@@ -15,6 +15,14 @@
 | ----------- | ------------------------------------------- | --------------------------------------------------------------- |
 | Stefan Huber | [stefanhuber](https://github.com/stefanhuber) | [Linkedin](https://www.linkedin.com/in/stefan-huber/) |
 
+## Requirements
+
+| Requirement | Version |
+| --- | --- |
+| Capacitor | 8.0.0 or later |
+| iOS | 15.0 or later |
+| Android | API level 24 (Android 7.0) or later |
+
 ## Install
 
 ```bash
