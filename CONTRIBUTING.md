@@ -98,4 +98,6 @@ That means you never run `npm publish` or bump the version by hand — merging t
 
 > **Note**: `npm run version` is CI's job, but if you ever run it locally to preview a release, it needs a `GITHUB_TOKEN` in the environment — the changelog generator resolves pull request and author links through the GitHub API. `GITHUB_TOKEN=$(gh auth token) npm run version` works.
 
+`main` is protected and requires the CI checks to pass. Pull requests opened with the default `GITHUB_TOKEN` do not trigger workflows, which would leave the release pull request without checks and therefore unmergeable. To avoid that, add a `RELEASE_TOKEN` repository secret — a fine-grained personal access token scoped to this repository with *Contents: read and write* and *Pull requests: read and write*. The workflow falls back to `GITHUB_TOKEN` when it is absent, in which case the release pull request has to be merged using the administrator override.
+
 > **Note**: The [`files`](https://docs.npmjs.com/cli/v7/configuring-npm/package-json#files) array in `package.json` specifies which files get published. If you rename files/directories or add files elsewhere, you may need to update it.
