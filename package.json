@@ -20,10 +20,10 @@
   "license": "BSD-2-Clause",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/smartcompanion-io/native-audio-player.git"
+    "url": "git+https://github.com/smartcompanion-app/native-audio-player.git"
   },
   "bugs": {
-    "url": "https://github.com/smartcompanion-io/native-audio-player/issues"
+    "url": "https://github.com/smartcompanion-app/native-audio-player/issues"
   },
   "keywords": [
     "capacitor",
@@ -46,7 +46,11 @@
     "build": "npm run clean && npm run docgen && tsc && rollup -c rollup.config.mjs",
     "clean": "rimraf ./dist",
     "watch": "tsc --watch",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run build",
+    "prepare": "husky",
+    "changeset": "changeset",
+    "version": "changeset version && npm install --package-lock-only",
+    "release": "npm run build && changeset publish"
   },
   "devDependencies": {
     "@capacitor/android": "^8.4.2",
@@ -79,5 +83,8 @@
     "android": {
       "src": "android"
     }
+  },
+  "lint-staged": {
+    "**/*.{css,html,ts,js,java}": "prettier --write --plugin=prettier-plugin-java"
   }
 }
