@@ -27,7 +27,8 @@ import java.util.Objects;
     permissions = {
         @Permission(
             strings = {
-                Manifest.permission.MODIFY_AUDIO_SETTINGS, Manifest.permission.FOREGROUND_SERVICE
+                Manifest.permission.MODIFY_AUDIO_SETTINGS,
+                Manifest.permission.FOREGROUND_SERVICE
                 //Manifest.permission.FOREGROUND_SERVICE_ME
             }
         )
@@ -103,22 +104,19 @@ public class NativeAudioPlayerPlugin extends Plugin {
 
         mediaItems = nativeAudioPlayer.fromJson(call.getData());
 
-        controllerFuture.addListener(
-            () -> {
-                try {
-                    mediaController = controllerFuture.get();
-                    //mediaController.setRepeatMode(Player.REPEAT_MODE_OFF);
-                    mediaController.setMediaItems(mediaItems);
+        controllerFuture.addListener(() -> {
+            try {
+                mediaController = controllerFuture.get();
+                //mediaController.setRepeatMode(Player.REPEAT_MODE_OFF);
+                mediaController.setMediaItems(mediaItems);
 
-                    registerPlayerEvents();
-                    call.resolve(nativeAudioPlayer.prepareIdItem(Objects.requireNonNull(mediaController.getCurrentMediaItem())));
-                } catch (Exception e) {
-                    Log.e("NATIVE_AUDIO_PLAYER", "Could not create media player: " + e.getMessage());
-                    call.reject("Could not create media player");
-                }
-            },
-            MoreExecutors.directExecutor()
-        );
+                registerPlayerEvents();
+                call.resolve(nativeAudioPlayer.prepareIdItem(Objects.requireNonNull(mediaController.getCurrentMediaItem())));
+            } catch (Exception e) {
+                Log.e("NATIVE_AUDIO_PLAYER", "Could not create media player: " + e.getMessage());
+                call.reject("Could not create media player");
+            }
+        }, MoreExecutors.directExecutor());
     }
 
     @PluginMethod
