@@ -11,10 +11,12 @@ describe("Native Audio Player Test", () => {
   it("Should show play button and on click it should toggle to pause", async () => {
     const playPauseButton = await browser.$("#play-pause");
 
+    // the player items are downloaded on startup, only afterwards the
+    // controls are enabled -- clicking earlier is a no-op
     await browser.waitUntil(async function () {
-      return (await playPauseButton.getText()) === "PLAY"
+      return (await playPauseButton.getText()) === "PLAY" && (await playPauseButton.isEnabled())
     }, {
-      timeout: 5000,
+      timeout: 60000,
       timeoutMsg: "Play button did not appear"
     });
 
