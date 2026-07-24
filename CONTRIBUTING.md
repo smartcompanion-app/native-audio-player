@@ -31,9 +31,9 @@ Then, Rollup will bundle the code into a single file at `dist/plugin.js`. This f
 
 #### `npm run verify`
 
-Build and validate the web and native projects.
+Build and validate the web and native projects, including the native unit tests: Robolectric on Android via `gradlew build test`, and XCTest on iOS via `scripts/test-ios.sh`.
 
-This is useful to run in CI to verify that the plugin builds for all platforms.
+This is useful to run in CI to verify that the plugin builds for all platforms. The iOS part needs an iPhone simulator available — the script picks a booted one if there is any, otherwise the first available iPhone, so there is nothing to configure.
 
 #### `npm run lint` / `npm run fmt`
 
@@ -45,9 +45,7 @@ This template is integrated with ESLint, Prettier, and SwiftLint. Using these to
 
 ## Testing
 
-`npm run verify` only compiles the plugin for each platform. The behavioural tests live in `example/`, which is a real Capacitor app driven by [WebdriverIO](https://webdriver.io/) and [Appium](https://appium.io/). The same specs in `example/test/` run against both platforms; `APPIUM_PLATFORM` selects which.
-
-The Android unit tests (Robolectric) run as part of `npm run verify:android`.
+`npm run verify` covers the native unit tests — `ios/Tests/` and `android/src/test/` — but not the behavioural ones. Those live in `example/`, which is a real Capacitor app driven by [WebdriverIO](https://webdriver.io/) and [Appium](https://appium.io/). The same specs in `example/test/` run against both platforms; `APPIUM_PLATFORM` selects which.
 
 ### iOS
 

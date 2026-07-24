@@ -17,6 +17,6 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, the build scripts, and how to 
 - **The README's API section is generated.** Everything between `<docgen-index>` and `</docgen-api>` comes from JSDoc comments in `src/definitions.ts` via `npm run docgen`. Edit the JSDoc, not the README. Prose outside those markers is preserved.
 - **`example/` is excluded from all three linters** — see `.eslintignore`, `.prettierignore`, and `swiftlint.config.js`.
 - **SwiftLint is not an npm dependency.** The `swiftlint` package only looks for a binary on `PATH`, so its version differs between local machines and CI runners, and so can the lint results.
-- **`npm run verify` does not run the e2e tests**, it only compiles each platform. The Appium specs in `example/test/` need a simulator or emulator.
+- **`npm run verify` runs the native unit tests but not the e2e ones.** The Appium specs in `example/test/` are separate and need a simulator or emulator. `verify:ios` needs a simulator too, since XCTest cannot run on a `generic/platform=iOS` destination — `scripts/test-ios.sh` resolves one at runtime instead of hardcoding a device.
 - **`example/wdio.conf.js` hardcodes iPhone 16 / iOS 18.6.** Any other simulator silently fails to match.
 - **The example app disables its controls until startup finishes** — it downloads audio files before enabling them. Tests must wait for `isEnabled()`, not just for button text, or clicks land on a disabled element and are lost.
