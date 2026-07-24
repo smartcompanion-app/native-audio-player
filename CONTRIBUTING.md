@@ -96,4 +96,6 @@ Releases are automated. Pushing to `main` runs the [changesets action](https://g
 
 That means you never run `npm publish` or bump the version by hand — merging the release pull request is the whole process. Packages are published with [npm provenance](https://docs.npmjs.com/generating-provenance-statements), which signs the tarball with a verifiable link back to the workflow run that built it.
 
+> **Note**: `npm run version` is CI's job, but if you ever run it locally to preview a release, it needs a `GITHUB_TOKEN` in the environment — the changelog generator resolves pull request and author links through the GitHub API. `GITHUB_TOKEN=$(gh auth token) npm run version` works.
+
 > **Note**: The [`files`](https://docs.npmjs.com/cli/v7/configuring-npm/package-json#files) array in `package.json` specifies which files get published. If you rename files/directories or add files elsewhere, you may need to update it.
