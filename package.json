@@ -20,10 +20,10 @@
   "license": "BSD-2-Clause",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/smartcompanion-io/native-audio-player.git"
+    "url": "git+https://github.com/smartcompanion-app/native-audio-player.git"
   },
   "bugs": {
-    "url": "https://github.com/smartcompanion-io/native-audio-player/issues"
+    "url": "https://github.com/smartcompanion-app/native-audio-player/issues"
   },
   "keywords": [
     "capacitor",
@@ -46,18 +46,26 @@
     "build": "npm run clean && npm run docgen && tsc && rollup -c rollup.config.mjs",
     "clean": "rimraf ./dist",
     "watch": "tsc --watch",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run build",
+    "prepare": "husky",
+    "changeset": "changeset",
+    "version": "changeset version && npm install --package-lock-only",
+    "release": "npm run build && changeset publish"
   },
   "devDependencies": {
     "@capacitor/android": "^8.4.2",
     "@capacitor/core": "^8.4.2",
     "@capacitor/docgen": "^0.3.1",
     "@capacitor/ios": "^8.4.2",
+    "@changesets/changelog-github": "^0.7.0",
+    "@changesets/cli": "^2.31.1",
     "@ionic/eslint-config": "^0.4.0",
     "@ionic/prettier-config": "^4.0.0",
     "@ionic/swiftlint-config": "^2.0.0",
     "@types/node": "^26.1.1",
     "eslint": "^8.57.1",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.4.0",
     "prettier": "^3.9.6",
     "prettier-plugin-java": "^2.10.3",
     "rimraf": "^6.1.3",
@@ -79,5 +87,8 @@
     "android": {
       "src": "android"
     }
+  },
+  "lint-staged": {
+    "**/*.{css,html,ts,js,java}": "prettier --write --plugin=prettier-plugin-java"
   }
 }

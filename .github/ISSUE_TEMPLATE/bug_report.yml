@@ -1,0 +1,73 @@
+name: Bug report
+description: Report something that does not work as documented.
+labels: ['bug']
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What happens, and what did you expect to happen instead?
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: >
+        The smaller the reproduction, the faster this gets fixed. A link to a
+        minimal repository is ideal; the `example/` app in this repo is a good
+        starting point.
+      placeholder: |
+        1. Call start() with two items
+        2. Call play()
+        3. ...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: platforms
+    attributes:
+      label: Affected platforms
+      multiple: true
+      options:
+        - Android
+        - iOS
+        - Web
+    validations:
+      required: true
+
+  - type: input
+    id: plugin-version
+    attributes:
+      label: Plugin version
+      placeholder: '0.4.0'
+    validations:
+      required: true
+
+  - type: input
+    id: capacitor-version
+    attributes:
+      label: Capacitor version
+      description: The output of `npx cap --version`.
+      placeholder: '8.4.2'
+    validations:
+      required: true
+
+  - type: input
+    id: device
+    attributes:
+      label: Device and OS version
+      description: >
+        Whether it is a simulator/emulator or a physical device matters — audio
+        routing and background playback behave differently on each.
+      placeholder: 'iPhone 15, iOS 18.6, physical device'
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Relevant output from Logcat or the Xcode console.
+      render: shell

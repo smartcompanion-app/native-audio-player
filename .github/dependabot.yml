@@ -1,0 +1,57 @@
+version: 2
+
+updates:
+  # The plugin itself. Grouped so a routine sweep arrives as one PR rather than
+  # one per package -- these all have to be verified together anyway.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      plugin-dependencies:
+        patterns:
+          - '*'
+    ignore:
+      # Held back deliberately, see CLAUDE.md: @ionic/eslint-config still ships
+      # @typescript-eslint v5, which caps eslint at 8.x and typescript at 5.x.
+      - dependency-name: eslint
+        update-types: [version-update:semver-major]
+      - dependency-name: typescript
+        update-types: [version-update:semver-major]
+
+  # The example app, which is test tooling only and never published.
+  - package-ecosystem: npm
+    directory: /example
+    schedule:
+      interval: monthly
+    groups:
+      example-dependencies:
+        patterns:
+          - '*'
+
+  # Android tooling is pinned to what @capacitor/android builds against, so
+  # majors here need a deliberate decision rather than an automatic bump.
+  - package-ecosystem: gradle
+    directory: /android
+    schedule:
+      interval: monthly
+    ignore:
+      - dependency-name: com.android.tools.build:gradle
+        update-types: [version-update:semver-major]
+
+  - package-ecosystem: gradle
+    directory: /example/android
+    schedule:
+      interval: monthly
+    ignore:
+      - dependency-name: com.android.tools.build:gradle
+        update-types: [version-update:semver-major]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      github-actions:
+        patterns:
+          - '*'

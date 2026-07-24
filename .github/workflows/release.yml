@@ -2,51 +2,60 @@ name: release
 
 on:
   push:
-    tags:
-      - "v[0-9]+.[0-9]+.[0-9]+"
+    branches:
+      - main
+
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 permissions:
   contents: write
+  pull-requests: write
+  # Required for npm provenance, which signs the published tarball with a
+  # verifiable link back to this workflow run.
+  id-token: write
+
+env:
+  NODE_VERSION: 22
 
 jobs:
   release:
-    runs-on: macos-15
+    name: Release
+    runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
-      - name: Set up Node.js
+      - name: Set up Node.js ${{ env.NODE_VERSION }}
         uses: actions/setup-node@v7
         with:
-          node-version: '22'
+          node-version: ${{ env.NODE_VERSION }}
           registry-url: 'https://registry.npmjs.org'
-
-      - name: Set version from tag to package.json
-        run: |
-          TAG_VERSION="${GITHUB_REF#refs/tags/v}"
-          if [ -f "package.json" ]; then
-            npm version --no-git-tag-version "$TAG_VERSION"
-          fi
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Build packages
-        run: npm run build
-
-      - name: Publish package
+      # Opens (or updates) a "chore: release" pull request collecting the
+      # pending changesets. Merging that PR runs this workflow again, at which
+      # point there are no changesets left and `publish` runs instead.
+      #
+      # RELEASE_TOKEN is a personal access token with contents and pull request
+      # write access. It is optional but recommended: pull requests opened with
+      # the default GITHUB_TOKEN do not trigger workflows, so the release pull
+      # request would sit with no CI checks and main's required checks could
+      # never pass on it. Falls back to GITHUB_TOKEN when the secret is absent.
+      - name: Create release pull request or publish
+        uses: changesets/action@v1
+        with:
+          github-token: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
+          version: npm run version
+          publish: npm run release
+          title: 'chore: release'
+          commit: 'chore: release'
         env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: |
-          npm publish --access public
-
-      - name: Add package.json changes to git
-        run: |
-          TAG_VERSION="${GITHUB_REF#refs/tags/v}"
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add package.json
-          git commit -m "chore: set version to $TAG_VERSION"
-          git tag -f "v$TAG_VERSION"
-          git push origin HEAD:refs/heads/main --follow-tags
-          git push origin -f "v$TAG_VERSION"
+          NPM_CONFIG_PROVENANCE: true

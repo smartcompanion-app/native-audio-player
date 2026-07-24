@@ -19,6 +19,8 @@ This guide provides instructions for contributing to this Capacitor plugin.
     brew install swiftlint
     ```
 
+`npm install` also sets up a [husky](https://typicode.github.io/husky/) pre-commit hook that runs Prettier over staged files, so formatting is fixed before it can reach CI.
+
 ### Scripts
 
 #### `npm run build`
@@ -76,12 +78,26 @@ npm run build:android
 npm run test:android
 ```
 
-## Publishing
+## Changesets
 
-There is a `prepublishOnly` hook in `package.json` which prepares the plugin before publishing, so all you need to do is run:
+Any pull request that changes something users would notice needs a changeset — it is what produces the version bump and the `CHANGELOG.md` entry.
 
 ```shell
-npm publish
+npm run changeset
 ```
+
+Pick the bump type (patch for fixes, minor for new API, major for breaking changes), describe the change in a sentence or two aimed at someone using the plugin, and commit the generated file in `.changeset/` along with your work.
+
+Changes that produce nothing observable in the published package — CI config, tests, documentation, refactoring — do not need one.
+
+## Publishing
+
+Releases are automated. Pushing to `main` runs the [changesets action](https://github.com/changesets/action), which collects the pending changesets into a `chore: release` pull request that bumps the version and updates `CHANGELOG.md`. Merging that pull request publishes to npm and tags the release.
+
+That means you never run `npm publish` or bump the version by hand — merging the release pull request is the whole process. Packages are published with [npm provenance](https://docs.npmjs.com/generating-provenance-statements), which signs the tarball with a verifiable link back to the workflow run that built it.
+
+> **Note**: `npm run version` is CI's job, but if you ever run it locally to preview a release, it needs a `GITHUB_TOKEN` in the environment — the changelog generator resolves pull request and author links through the GitHub API. `GITHUB_TOKEN=$(gh auth token) npm run version` works.
+
+`main` is protected and requires the CI checks to pass. Pull requests opened with the default `GITHUB_TOKEN` do not trigger workflows, which would leave the release pull request without checks and therefore unmergeable. To avoid that, add a `RELEASE_TOKEN` repository secret — a fine-grained personal access token scoped to this repository with *Contents: read and write* and *Pull requests: read and write*. The workflow falls back to `GITHUB_TOKEN` when it is absent, in which case the release pull request has to be merged using the administrator override.
 
 > **Note**: The [`files`](https://docs.npmjs.com/cli/v7/configuring-npm/package-json#files) array in `package.json` specifies which files get published. If you rename files/directories or add files elsewhere, you may need to update it.
