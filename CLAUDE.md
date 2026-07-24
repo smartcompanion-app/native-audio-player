@@ -12,6 +12,8 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, the build scripts, and how to 
 
 **Capacitor stays on the latest stable 8.x.** Version 9 is still alpha.
 
+**Releases go through changesets.** Never bump the version in `package.json` or edit `CHANGELOG.md` by hand — both are generated. A user-visible change needs a `.changeset/*.md` file (`npm run changeset`); pushing to `main` opens a release PR, and merging it publishes.
+
 ## Gotchas
 
 - **The README's API section is generated.** Everything between `<docgen-index>` and `</docgen-api>` comes from JSDoc comments in `src/definitions.ts` via `npm run docgen`. Edit the JSDoc, not the README. Prose outside those markers is preserved.
