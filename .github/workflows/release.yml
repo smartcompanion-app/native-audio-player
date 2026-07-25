@@ -12,8 +12,9 @@ concurrency:
 permissions:
   contents: write
   pull-requests: write
-  # Required for npm provenance, which signs the published tarball with a
-  # verifiable link back to this workflow run.
+  # Required for npm trusted publishing: npm exchanges this workflow's OIDC
+  # token for a short-lived publish token, so no npm token is stored anywhere.
+  # The same OIDC identity is what signs the provenance attestation.
   id-token: write
 
 env:
@@ -29,11 +30,19 @@ jobs:
         with:
           fetch-depth: 0
 
+      # No registry-url on purpose: it writes an .npmrc pinning the auth token
+      # to NODE_AUTH_TOKEN, and trusted publishing authenticates over OIDC
+      # instead. Leaving it would point npm at an unset variable.
       - name: Set up Node.js ${{ env.NODE_VERSION }}
         uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
-          registry-url: 'https://registry.npmjs.org'
+
+      # Trusted publishing landed in npm 11.5.1 and Node 22 still bundles
+      # npm 10, so upgrade npm rather than the Node version — the release job
+      # then builds on the same runtime CI tests against.
+      - name: Update npm
+        run: npm install -g npm@latest
 
       - name: Install dependencies
         run: npm ci
@@ -57,5 +66,8 @@ jobs:
           commit: 'chore: release'
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          # npm authenticates over OIDC against the trusted publisher
+          # configured for this package (this repository, this workflow file),
+          # so there is deliberately no npm token here. Provenance is implied by
+          # trusted publishing; the flag is kept so the intent stays explicit.
           NPM_CONFIG_PROVENANCE: true
