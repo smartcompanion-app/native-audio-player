@@ -31,12 +31,16 @@ updates:
 
   # Android tooling is pinned to what @capacitor/android builds against, so
   # majors here need a deliberate decision rather than an automatic bump.
+  # Gradle 9.6 dropped an internal API that AGP 8.x still uses, so the wrapper
+  # cannot move to 9.x while AGP is held at 8.13 -- see #18 and #19.
   - package-ecosystem: gradle
     directory: /android
     schedule:
       interval: monthly
     ignore:
       - dependency-name: com.android.tools.build:gradle
+        update-types: [version-update:semver-major]
+      - dependency-name: gradle-wrapper
         update-types: [version-update:semver-major]
 
   - package-ecosystem: gradle
@@ -45,6 +49,8 @@ updates:
       interval: monthly
     ignore:
       - dependency-name: com.android.tools.build:gradle
+        update-types: [version-update:semver-major]
+      - dependency-name: gradle-wrapper
         update-types: [version-update:semver-major]
 
   - package-ecosystem: github-actions

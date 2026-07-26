@@ -1,8 +1,12 @@
 name: ci
 
+# Pushes are only built for main. A push to any other branch that has a PR open
+# would otherwise be built twice -- once for the push, once for the pull_request.
 on:
-  - push
-  - pull_request
+  push:
+    branches:
+      - main
+  pull_request:
 
 permissions:
   contents: read
