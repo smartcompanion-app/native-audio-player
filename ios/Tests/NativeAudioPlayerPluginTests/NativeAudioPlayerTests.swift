@@ -1,4 +1,5 @@
 import XCTest
+import MediaPlayer
 @testable import NativeAudioPlayerPlugin
 
 class NativeAudioPlayerTests: XCTestCase {
@@ -97,5 +98,44 @@ class NativeAudioPlayerTests: XCTestCase {
 
         XCTAssertEqual(player.duration, 0)
         XCTAssertEqual(player.position, 0)
+    }
+
+    // The plugin holds a player over an empty item list until start() succeeds,
+    // so every accessor below has to stay reachable without a current item.
+
+    func testMetadataIsEmptyWithoutItems() {
+        let player = NativeAudioPlayer([])
+
+        XCTAssertNil(player.currentItem)
+        XCTAssertEqual(player.currentId, "")
+        XCTAssertEqual(player.title, "")
+        XCTAssertEqual(player.subtitle, "")
+    }
+
+    func testNavigationFailsWithoutItems() {
+        let player = NativeAudioPlayer([])
+
+        XCTAssertFalse(player.next())
+        XCTAssertFalse(player.previous())
+        XCTAssertFalse(player.select("1"))
+
+        // previous() used to land on index -1, which trapped on the next read
+        XCTAssertEqual(player.currentIndex, 0)
+    }
+
+    func testLoadFailsWithoutItems() {
+        XCTAssertFalse(NativeAudioPlayer([]).load())
+    }
+
+    func testLoadFailsForAnItemWithoutAnAudioUri() {
+        XCTAssertFalse(NativeAudioPlayer([["id": "1"]]).load())
+    }
+
+    func testInitLockScreenIsANoOpWithoutItems() {
+        MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
+
+        NativeAudioPlayer([]).initLockScreen()
+
+        XCTAssertNil(MPNowPlayingInfoCenter.default().nowPlayingInfo)
     }
 }

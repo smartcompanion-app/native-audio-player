@@ -7,7 +7,6 @@ import androidx.media3.common.MediaMetadata;
 import com.getcapacitor.JSObject;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -23,8 +22,9 @@ public class NativeAudioPlayer {
                 mediaItems.add(getMediaItem(items.getJSONObject(i)));
             }
         } catch (Exception e) {
-            Log.e("NATIVE_AUDIO_PLAYER", "Could not transform JSON to MediaItems");
-            Log.e("NATIVE_AUDIO_PLAYER", Objects.requireNonNull(e.getMessage()));
+            // requireNonNull here used to throw straight back out of the catch block
+            // whenever the underlying exception carried no message
+            Log.e("NATIVE_AUDIO_PLAYER", "Could not transform JSON to MediaItems", e);
         }
 
         return mediaItems;
