@@ -14,6 +14,7 @@ import com.getcapacitor.JSObject;
 import com.getcapacitor.MessageHandler;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginResult;
+import com.google.common.util.concurrent.Futures;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -117,23 +118,27 @@ public class NativeAudioPlayerPluginTest {
         assertResolved(seekCall);
     }
 
+    /**
+     * These three promise {id: string}, so without an item there is nothing to
+     * resolve with -- they still have to answer instead of leaving JS waiting.
+     */
     @Test
-    public void testNavigationMethodsResolveWithoutAController() throws Exception {
+    public void testNavigationMethodsRejectWithoutAController() {
         PluginCall nextCall = call();
         plugin.next(nextCall);
-        assertResolved(nextCall);
+        assertRejected(nextCall);
 
         setUp();
         PluginCall previousCall = call();
         plugin.previous(previousCall);
-        assertResolved(previousCall);
+        assertRejected(previousCall);
 
         setUp();
         JSObject data = new JSObject();
         data.put("id", "item1");
         PluginCall selectCall = call(data);
         plugin.select(selectCall);
-        assertResolved(selectCall);
+        assertRejected(selectCall);
     }
 
     @Test
@@ -265,6 +270,48 @@ public class NativeAudioPlayerPluginTest {
 
     // Java assertions are disabled at runtime on Android, so the assert this
     // replaces never guarded anything.
+
+    // A start() that fails after the controller connected has to leave nothing
+    // behind: the controller keeps its listener and its session connection alive.
+
+    @Test
+    public void testAttachControllerConfiguresTheControllerAndResolvesWithTheFirstId() throws Exception {
+        MediaController controller = controllerWithCurrentItem("item1");
+        plugin.mediaItems = new java.util.ArrayList<>();
+        PluginCall call = call();
+
+        plugin.attachController(Futures.immediateFuture(controller), call);
+
+        verify(controller).setMediaItems(plugin.mediaItems);
+        verify(controller).addListener(plugin.playerListener);
+        Assert.assertEquals("item1", assertResolved(call).getString("id"));
+    }
+
+    @Test
+    public void testAttachControllerReleasesTheControllerWhenSetupFails() {
+        MediaController controller = mock(MediaController.class);
+        doThrow(new IllegalStateException("boom")).when(controller).setMediaItems(org.mockito.ArgumentMatchers.any());
+        plugin.mediaItems = new java.util.ArrayList<>();
+        PluginCall call = call();
+
+        plugin.attachController(Futures.immediateFuture(controller), call);
+
+        verify(controller).release();
+        Assert.assertNull(plugin.mediaController);
+        Assert.assertNull(plugin.mediaItems);
+        assertRejected(call);
+    }
+
+    @Test
+    public void testAttachControllerRejectsWhenTheConnectionFails() {
+        plugin.mediaItems = new java.util.ArrayList<>();
+        PluginCall call = call();
+
+        plugin.attachController(Futures.immediateFailedFuture(new IllegalStateException("no session")), call);
+
+        Assert.assertNull(plugin.mediaController);
+        assertRejected(call);
+    }
 
     @Test
     public void testMediaItemTransitionToleratesANullItem() {

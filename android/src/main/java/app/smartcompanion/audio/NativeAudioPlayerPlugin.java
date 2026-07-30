@@ -6,7 +6,6 @@ import android.content.Context;
 import android.os.Bundle;
 import android.util.Log;
 import androidx.annotation.Nullable;
-import androidx.core.content.ContextCompat;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
 import androidx.media3.session.MediaController;
@@ -19,8 +18,10 @@ import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
 import com.getcapacitor.annotation.Permission;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.Future;
 
 @CapacitorPlugin(
     name = "NativeAudioPlayer",
@@ -122,23 +123,43 @@ public class NativeAudioPlayerPlugin extends Plugin {
         mediaItems = nativeAudioPlayer.fromJson(call.getData());
 
         controllerFuture.addListener(
-            () -> {
-                try {
-                    mediaController = controllerFuture.get();
-                    //mediaController.setRepeatMode(Player.REPEAT_MODE_OFF);
-                    mediaController.setMediaItems(mediaItems);
-
-                    registerPlayerEvents();
-                    call.resolve(nativeAudioPlayer.prepareIdItem(Objects.requireNonNull(mediaController.getCurrentMediaItem())));
-                } catch (Exception e) {
-                    Log.e("NATIVE_AUDIO_PLAYER", "Could not create media player: " + e.getMessage());
-                    call.reject("Could not create media player");
-                }
-            },
-            // MediaController is main thread only, and directExecutor() would run
-            // this on whichever thread happened to complete the future
-            ContextCompat.getMainExecutor(context)
+            () -> attachController(controllerFuture, call),
+            // A MediaController may only be touched from the looper it was built on,
+            // which is the "CapacitorPlugins" thread every @PluginMethod runs on, and
+            // buildAsync() completes the future on that same looper. directExecutor()
+            // therefore keeps us on the right thread -- handing this to the main
+            // executor instead makes every controller call throw.
+            MoreExecutors.directExecutor()
         );
+    }
+
+    /**
+     * Hands the connected controller the playlist and answers the call. Split out of
+     * the connection callback so the failure path is reachable from a test.
+     */
+    protected void attachController(Future<MediaController> controllerFuture, PluginCall call) {
+        try {
+            mediaController = controllerFuture.get();
+            //mediaController.setRepeatMode(Player.REPEAT_MODE_OFF);
+            mediaController.setMediaItems(mediaItems);
+
+            registerPlayerEvents();
+            call.resolve(nativeAudioPlayer.prepareIdItem(Objects.requireNonNull(mediaController.getCurrentMediaItem())));
+        } catch (Exception e) {
+            Log.e("NATIVE_AUDIO_PLAYER", "Could not create media player: " + e.getMessage());
+
+            // a half configured controller must not stay assigned: it keeps its
+            // listener attached and its connection to the session open
+            try {
+                releaseController();
+            } catch (Exception releaseError) {
+                Log.e("NATIVE_AUDIO_PLAYER", "Could not release the media controller: " + releaseError.getMessage());
+                mediaController = null;
+            }
+
+            mediaItems = null;
+            call.reject("Could not create media player");
+        }
     }
 
     @PluginMethod
@@ -278,13 +299,16 @@ public class NativeAudioPlayerPlugin extends Plugin {
 
     /**
      * Resolves with the id of the item the controller is on, matching the
-     * {id: string} the TypeScript definitions promise for these methods.
+     * {id: string} the TypeScript definitions promise for these methods. Without a
+     * current item there is no id to report, so the call is rejected rather than
+     * resolved with an empty object -- that would reach JS as an undefined id. iOS
+     * rejects the same three methods when it cannot switch item.
      */
     protected void resolveWithCurrentId(PluginCall call) {
         MediaItem mediaItem = mediaController != null ? mediaController.getCurrentMediaItem() : null;
 
         if (mediaItem == null) {
-            call.resolve();
+            call.reject("No audio item is loaded");
             return;
         }
 
@@ -292,7 +316,7 @@ public class NativeAudioPlayerPlugin extends Plugin {
             call.resolve(nativeAudioPlayer.prepareIdItem(mediaItem));
         } catch (Exception e) {
             Log.e("NATIVE_AUDIO_PLAYER", "Could not read the current item id: " + e.getMessage());
-            call.resolve();
+            call.reject("Could not read the current item id");
         }
     }
 

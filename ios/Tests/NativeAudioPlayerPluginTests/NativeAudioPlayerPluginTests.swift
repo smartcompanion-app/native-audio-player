@@ -322,6 +322,26 @@ class NativeAudioPlayerPluginTests: XCTestCase {
         XCTAssertNil(weakPlugin, "plugin leaked -- check [weak self] on onCompleted and the remote command targets")
     }
 
+    /// A failed start() replaces the player that was loaded, so the targets from the
+    /// previous start would be left driving a player nothing can reach any more.
+    func testFailedStartRemovesTheTargetsOfTheStartBeforeIt() throws {
+        let audio = try writeAudioFile(at: "failed-restart.wav")
+        let plugin = RecordingPlugin()
+
+        plugin.start(CallRecorder().makeCall(["items": [item(id: "1", audio: audio)]]))
+        XCTAssertNotNil(plugin.playTarget)
+
+        let recorder = CallRecorder()
+        plugin.start(recorder.makeCall(["items": []]))
+
+        XCTAssertEqual(recorder.rejected, "could not load audio items")
+        XCTAssertNil(plugin.pauseTarget)
+        XCTAssertNil(plugin.playTarget)
+        XCTAssertNil(plugin.nextTarget)
+        XCTAssertNil(plugin.previousTarget)
+        XCTAssertNil(plugin.seekTarget)
+    }
+
     func testPluginIsReleasedWithoutAnExplicitStop() throws {
         let audio = try writeAudioFile(at: "lifetime-no-stop.wav")
         weak var weakPlugin: RecordingPlugin?

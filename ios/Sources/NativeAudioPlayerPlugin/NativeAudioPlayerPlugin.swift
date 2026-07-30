@@ -24,11 +24,13 @@ public class NativeAudioPlayerPlugin: CAPPlugin, CAPBridgedPlugin {
 
     private var player: NativeAudioPlayer = NativeAudioPlayer([])
 
-    private var pauseTarget: Any?
-    private var playTarget: Any?
-    private var nextTarget: Any?
-    private var previousTarget: Any?
-    private var seekTarget: Any?
+    // not private so the tests can tell an installed target from a removed one --
+    // MPRemoteCommand exposes no way to read back what is registered on it
+    var pauseTarget: Any?
+    var playTarget: Any?
+    var nextTarget: Any?
+    var previousTarget: Any?
+    var seekTarget: Any?
 
     deinit {
         // MPRemoteCommandCenter is a process-wide singleton and holds its target
@@ -78,6 +80,9 @@ public class NativeAudioPlayerPlugin: CAPPlugin, CAPBridgedPlugin {
                 "id": player.currentId
             ])
         } else {
+            // the player this start() replaced is gone, so its handlers must not stay
+            // on the process-wide command center and drive a player nobody can reach
+            removeRemoteCommandTargets()
             call.reject("could not load audio items")
         }
     }
