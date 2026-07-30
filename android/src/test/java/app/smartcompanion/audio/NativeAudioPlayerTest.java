@@ -54,4 +54,51 @@ public class NativeAudioPlayerTest {
         Assert.assertEquals("item2", items.get(1).mediaId);
         Assert.assertEquals("title item2", items.get(1).mediaMetadata.title);
     }
+
+    @Test
+    public void testShouldMapSubtitleToBothSubtitleAndArtist() throws Exception {
+        List<MediaItem> items = nativeAudioPlayer.fromJson(getItems());
+
+        Assert.assertEquals("subtitle item1", items.get(0).mediaMetadata.subtitle);
+        Assert.assertEquals("subtitle item1", items.get(0).mediaMetadata.artist);
+        Assert.assertEquals("http://something.com/image1.jpg", items.get(0).mediaMetadata.artworkUri.toString());
+    }
+
+    @Test
+    public void testShouldReturnAnEmptyListForMalformedJson() throws Exception {
+        JSONObject jsObject = new JSONObject();
+        jsObject.put("items", "not an array");
+
+        // an exception without a message used to escape the catch block here,
+        // because it logged Objects.requireNonNull(e.getMessage())
+        List<MediaItem> items = nativeAudioPlayer.fromJson(JSObject.fromJSONObject(jsObject));
+
+        Assert.assertTrue(items.isEmpty());
+    }
+
+    @Test
+    public void testShouldReturnAnEmptyListWhenItemsAreMissing() throws Exception {
+        List<MediaItem> items = nativeAudioPlayer.fromJson(new JSObject());
+
+        Assert.assertTrue(items.isEmpty());
+    }
+
+    @Test
+    public void testShouldPrepareAnUpdateEvent() throws Exception {
+        MediaItem mediaItem = new MediaItem.Builder().setMediaId("item1").build();
+
+        JSObject json = nativeAudioPlayer.prepareUpdateEvent("playing", mediaItem);
+
+        Assert.assertEquals("playing", json.getString("state"));
+        Assert.assertEquals("item1", json.getString("id"));
+    }
+
+    @Test
+    public void testShouldPrepareAnIdItem() throws Exception {
+        MediaItem mediaItem = new MediaItem.Builder().setMediaId("item1").build();
+
+        JSObject json = nativeAudioPlayer.prepareIdItem(mediaItem);
+
+        Assert.assertEquals("item1", json.getString("id"));
+    }
 }

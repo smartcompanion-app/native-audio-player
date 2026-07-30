@@ -1,41 +1,37 @@
 import Foundation
 import AVFoundation
-import Capacitor
 import MediaPlayer
+import UIKit
 
 @objc public class NativeAudioPlayer: NSObject, AVAudioPlayerDelegate {
-    
+
     var playerItems: [AudioPlayerItem] = []
     var audioPlayer: AVAudioPlayer?
     var currentIndex: Int = 0
     var earpiece: Bool = true
+
+    // the item currentIndex points at, or nil while the playlist is empty --
+    // everything below reads through this so an unset playlist cannot trap
+    var currentItem: AudioPlayerItem? {
+        playerItems.indices.contains(currentIndex) ? playerItems[currentIndex] : nil
+    }
     var currentId: String {
-        get {
-            return playerItems[currentIndex].id
-        }
+        currentItem?.id ?? ""
     }
     var duration: Int {
-        get {
-            return Int(audioPlayer?.duration ?? 0)
-        }
+        Int(audioPlayer?.duration ?? 0)
     }
     var position: Int {
-        get {
-            return Int(audioPlayer?.currentTime ?? 0)
-        }
+        Int(audioPlayer?.currentTime ?? 0)
     }
     var title: String {
-        get {
-            return playerItems[currentIndex].title
-        }
+        currentItem?.title ?? ""
     }
     var subtitle: String {
-        get {
-            return playerItems[currentIndex].subtitle
-        }
+        currentItem?.subtitle ?? ""
     }
     var onCompleted: ((_ id: String) -> Void)?
-                
+
     init(_ items: [[String: Any]]) {
         for item in items {
             let playerItem = AudioPlayerItem()
@@ -47,14 +43,43 @@ import MediaPlayer
             playerItems.append(playerItem)
         }
     }
-    
+
+    deinit {
+        // only tear down when this instance still owns a player: an instance that
+        // never loaded must not deactivate the session or clear the lock screen
+        // that a different instance has since taken over
+        if audioPlayer != nil {
+            stop()
+        }
+    }
+
+    // Capacitor's Filesystem API hands back fully qualified file:// URLs, but a
+    // plain path is just as valid -- accept both instead of rebuilding the path
+    // from its last component, which only ever resolved for Directory.Data.
+    private func resolveURL(_ uri: String) -> URL? {
+        guard !uri.isEmpty else {
+            return nil
+        }
+
+        if let url = URL(string: uri), url.scheme != nil {
+            return url
+        }
+
+        return URL(fileURLWithPath: uri)
+    }
+
+    @discardableResult
     func load() -> Bool {
+        guard let item = currentItem, let url = resolveURL(item.audioUri) else {
+            return false
+        }
+
         do {
-            let audioSession : AVAudioSession = AVAudioSession.sharedInstance()
-            
+            let audioSession: AVAudioSession = AVAudioSession.sharedInstance()
+
             // only when setting .playAndRecord an output to earpiece is possible
             try audioSession.setCategory(.playAndRecord, mode: .default, options: [.allowAirPlay, .allowBluetoothA2DP])
-                                    
+
             // only try to override earpiece/speaker if selected output port
             // is builtInSpeaker/Receiver otherwise do nothing, e.g., in the case of airpods
             let portType = audioSession.currentRoute.outputs.first?.portType
@@ -63,27 +88,17 @@ import MediaPlayer
                     earpiece ? AVAudioSession.PortOverride.none : AVAudioSession.PortOverride.speaker
                 )
             }
-            
+
             // set active as last
             try audioSession.setActive(true, options: .notifyOthersOnDeactivation)
-                                    
-            //audioSession.currentRoute.outputs.forEach { print($0) }
-                        
-            if audioPlayer != nil {
-                audioPlayer?.stop()
-                audioPlayer = nil
-            }
-            
-            let url = URL(fileURLWithPath: playerItems[currentIndex].audioUri)
-            guard let dir = FileManager.default.urls(for: FileManager.SearchPathDirectory.documentDirectory, in: .userDomainMask).first else {
-                return false
-            }
-            audioPlayer = try AVAudioPlayer(contentsOf: dir.appendingPathComponent(url.lastPathComponent))
+
+            audioPlayer?.stop()
+            audioPlayer = try AVAudioPlayer(contentsOf: url)
             audioPlayer?.prepareToPlay()
             audioPlayer?.delegate = self
-            
+
             initLockScreen()
-            
+
             return true
         } catch {
             if !earpiece {
@@ -91,82 +106,82 @@ import MediaPlayer
                 return self.load()
             }
         }
-        
+
         return false
     }
-    
+
     func stop() {
-        if audioPlayer != nil {
-            audioPlayer?.stop()
-            audioPlayer = nil
-        }
-        
+        audioPlayer?.stop()
+        audioPlayer = nil
+
         // remove player from lock screen
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
         MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
     }
-    
+
     func play() {
-        if let playing = audioPlayer?.isPlaying {
-            if !playing {
-                audioPlayer?.play()
-                initLockScreen(self.position)
-            }
+        if audioPlayer?.isPlaying == false {
+            audioPlayer?.play()
+            initLockScreen(self.position)
         }
     }
-    
+
     func pause() {
-        if let playing = audioPlayer?.isPlaying {
-            if playing {
-                audioPlayer?.pause()
-            }
+        if audioPlayer?.isPlaying == true {
+            audioPlayer?.pause()
         }
     }
-    
+
     func select(_ id: String) -> Bool {
-        pause()
-        
-        for index in playerItems.indices {
-            if playerItems[index].id == id {
-                currentIndex = index
-                break
-            }
+        guard !playerItems.isEmpty else {
+            return false
         }
-        
+
+        pause()
+
+        if let index = playerItems.firstIndex(where: { $0.id == id }) {
+            currentIndex = index
+        }
+
         return load()
     }
-    
+
     func next() -> Bool {
+        guard !playerItems.isEmpty else {
+            return false
+        }
+
         pause()
-        
+
         if currentIndex < (playerItems.count - 1) {
             currentIndex += 1
         } else {
             currentIndex = 0
         }
-        
+
         return load()
     }
-    
+
     func previous() -> Bool {
+        guard !playerItems.isEmpty else {
+            return false
+        }
+
         pause()
-        
+
         if currentIndex > 0 {
             currentIndex -= 1
         } else {
             currentIndex = playerItems.count - 1
         }
-        
+
         return load()
     }
-    
+
     func seekTo(_ position: Int) {
-        if audioPlayer != nil {
-            //pause()
-            audioPlayer?.currentTime = Double(position)
-        }
+        audioPlayer?.currentTime = Double(position)
     }
-    
+
     func setEarpiece() {
         let oldPosition = position
         pause()
@@ -174,7 +189,7 @@ import MediaPlayer
         load()
         seekTo(oldPosition)
     }
-    
+
     func setSpeaker() {
         let oldPosition = position
         pause()
@@ -182,31 +197,33 @@ import MediaPlayer
         load()
         seekTo(oldPosition)
     }
-    
+
     func initLockScreen(_ position: Int = 0) {
-        guard let dir = FileManager.default.urls(for: FileManager.SearchPathDirectory.documentDirectory, in: .userDomainMask).first else {
+        guard let item = currentItem else {
             return
         }
-        
-        let url = URL(fileURLWithPath: self.playerItems[self.currentIndex].imageUri)
-        
-        MPNowPlayingInfoCenter.default().nowPlayingInfo = [
+
+        var nowPlayingInfo: [String: Any] = [
             MPMediaItemPropertyTitle: self.title,
             MPMediaItemPropertyArtist: self.subtitle,
             MPMediaItemPropertyPlaybackDuration: self.duration,
-            MPMediaItemPropertyArtwork: MPMediaItemArtwork(boundsSize: CGSize(width: 500, height: 500), requestHandler: { (size) -> UIImage in
-                let uri = dir.appendingPathComponent(url.lastPathComponent).path
-                return UIImage(contentsOfFile: uri)!
-            }),
             MPNowPlayingInfoPropertyPlaybackRate: 1.0,
             MPNowPlayingInfoPropertyElapsedPlaybackTime: position
         ]
+
+        // decode up front: the artwork request handler is invoked by the system on
+        // an arbitrary thread, where a missing or corrupt image used to crash
+        if let imageURL = resolveURL(item.imageUri), let image = UIImage(contentsOfFile: imageURL.path) {
+            nowPlayingInfo[MPMediaItemPropertyArtwork] = MPMediaItemArtwork(boundsSize: image.size) { _ in image }
+        }
+
+        MPNowPlayingInfoCenter.default().nowPlayingInfo = nowPlayingInfo
     }
-    
+
     public func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
-        if (flag) {            
+        if flag {
             onCompleted?(self.currentId)
         }
     }
-    
+
 }

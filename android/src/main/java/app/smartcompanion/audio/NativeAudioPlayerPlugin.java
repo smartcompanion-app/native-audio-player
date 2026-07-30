@@ -21,6 +21,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.Future;
 
 @CapacitorPlugin(
     name = "NativeAudioPlayer",
@@ -45,15 +46,27 @@ public class NativeAudioPlayerPlugin extends Plugin {
     protected Player.Listener playerListener = new Player.Listener() {
         @Override
         public void onMediaItemTransition(@Nullable MediaItem mediaItem, int reason) {
+            MediaController controller = mediaController;
+
+            // a transition can still be delivered once the controller is gone
+            if (controller == null) {
+                return;
+            }
+
             if (Player.MEDIA_ITEM_TRANSITION_REASON_AUTO == reason) {
-                mediaController.pause();
-                mediaController.seekToPreviousMediaItem();
+                controller.pause();
+                controller.seekToPreviousMediaItem();
+            }
+
+            // Java assertions are disabled at runtime on Android, so the assert
+            // this replaces never actually checked anything
+            if (mediaItem == null) {
+                return;
             }
 
             try {
-                assert mediaItem != null;
                 JSObject json = nativeAudioPlayer.prepareUpdateEvent("skip", mediaItem);
-                mediaController.pause();
+                controller.pause();
                 notifyListeners("update", json);
             } catch (Exception e) {
                 Log.e("NATIVE_AUDIO_PLAYER", "Could not trigger skip event: " + e.getMessage());
@@ -99,41 +112,88 @@ public class NativeAudioPlayerPlugin extends Plugin {
     @PluginMethod
     public void start(PluginCall call) {
         Context context = this.getContext();
+
+        // without this a second start() leaks the previous controller and leaves
+        // its listener attached, so every update event is delivered twice
+        releaseController();
+
         SessionToken sessionToken = new SessionToken(context, new ComponentName(context, AudioPlayerService.class));
         ListenableFuture<MediaController> controllerFuture = new MediaController.Builder(context, sessionToken).buildAsync();
 
         mediaItems = nativeAudioPlayer.fromJson(call.getData());
 
-        controllerFuture.addListener(() -> {
-            try {
-                mediaController = controllerFuture.get();
-                //mediaController.setRepeatMode(Player.REPEAT_MODE_OFF);
-                mediaController.setMediaItems(mediaItems);
+        controllerFuture.addListener(
+            () -> attachController(controllerFuture, call),
+            // A MediaController may only be touched from the looper it was built on,
+            // which is the "CapacitorPlugins" thread every @PluginMethod runs on, and
+            // buildAsync() completes the future on that same looper. directExecutor()
+            // therefore keeps us on the right thread -- handing this to the main
+            // executor instead makes every controller call throw.
+            MoreExecutors.directExecutor()
+        );
+    }
 
-                registerPlayerEvents();
-                call.resolve(nativeAudioPlayer.prepareIdItem(Objects.requireNonNull(mediaController.getCurrentMediaItem())));
-            } catch (Exception e) {
-                Log.e("NATIVE_AUDIO_PLAYER", "Could not create media player: " + e.getMessage());
-                call.reject("Could not create media player");
+    /**
+     * Hands the connected controller the playlist and answers the call. Split out of
+     * the connection callback so the failure path is reachable from a test.
+     */
+    protected void attachController(Future<MediaController> controllerFuture, PluginCall call) {
+        try {
+            mediaController = controllerFuture.get();
+            //mediaController.setRepeatMode(Player.REPEAT_MODE_OFF);
+            mediaController.setMediaItems(mediaItems);
+
+            registerPlayerEvents();
+            call.resolve(nativeAudioPlayer.prepareIdItem(Objects.requireNonNull(mediaController.getCurrentMediaItem())));
+        } catch (Exception e) {
+            Log.e("NATIVE_AUDIO_PLAYER", "Could not create media player: " + e.getMessage());
+
+            // a half configured controller must not stay assigned: it keeps its
+            // listener attached and its connection to the session open
+            try {
+                releaseController();
+            } catch (Exception releaseError) {
+                Log.e("NATIVE_AUDIO_PLAYER", "Could not release the media controller: " + releaseError.getMessage());
+                mediaController = null;
             }
-        }, MoreExecutors.directExecutor());
+
+            mediaItems = null;
+            call.reject("Could not create media player");
+        }
     }
 
     @PluginMethod
     public void stop(PluginCall call) {
+        String failure = null;
+
         try {
             if (mediaController != null) {
                 mediaController.pause();
                 mediaController.stop();
-                mediaController.release();
-                mediaController = null;
-                unregisterPlayerEvents();
-            }
-            if (call != null) {
-                call.resolve();
             }
         } catch (Exception e) {
             Log.e("NATIVE_AUDIO_PLAYER", "Native Audio Player stop: " + e.getMessage());
+            failure = "Could not stop the audio player";
+        }
+
+        // released in its own block so a failed pause/stop cannot leak the controller
+        try {
+            releaseController();
+        } catch (Exception e) {
+            Log.e("NATIVE_AUDIO_PLAYER", "Could not release the media controller: " + e.getMessage());
+            mediaController = null;
+            failure = "Could not stop the audio player";
+        }
+
+        mediaItems = null;
+
+        // any exception used to be logged and swallowed, hanging the promise in JS
+        if (call != null) {
+            if (failure != null) {
+                call.reject(failure);
+            } else {
+                call.resolve();
+            }
         }
     }
 
@@ -157,7 +217,7 @@ public class NativeAudioPlayerPlugin extends Plugin {
     public void select(PluginCall call) {
         String id = call.getString("id");
 
-        if (mediaController != null && id != null && mediaController.getMediaItemCount() > 0) {
+        if (mediaController != null && id != null) {
             for (int i = 0; i < mediaController.getMediaItemCount(); i++) {
                 MediaItem mediaItem = mediaController.getMediaItemAt(i);
 
@@ -167,7 +227,8 @@ public class NativeAudioPlayerPlugin extends Plugin {
                 }
             }
         }
-        call.resolve();
+
+        resolveWithCurrentId(call);
     }
 
     @PluginMethod
@@ -175,7 +236,7 @@ public class NativeAudioPlayerPlugin extends Plugin {
         if (mediaController != null) {
             mediaController.seekToNextMediaItem();
         }
-        call.resolve();
+        resolveWithCurrentId(call);
     }
 
     @PluginMethod
@@ -183,7 +244,7 @@ public class NativeAudioPlayerPlugin extends Plugin {
         if (mediaController != null) {
             mediaController.seekToPreviousMediaItem();
         }
-        call.resolve();
+        resolveWithCurrentId(call);
     }
 
     @PluginMethod
@@ -199,9 +260,9 @@ public class NativeAudioPlayerPlugin extends Plugin {
     @PluginMethod
     public void getPosition(PluginCall call) {
         JSObject result = new JSObject();
-        if (mediaController != null) {
-            result.put("value", mediaController.getCurrentPosition() / 1000);
-        }
+        // always carry a value: an absent key reaches JS as undefined, where iOS
+        // and the web implementation both report 0
+        result.put("value", mediaController != null ? mediaController.getCurrentPosition() / 1000 : 0);
         call.resolve(result);
     }
 
@@ -236,9 +297,43 @@ public class NativeAudioPlayerPlugin extends Plugin {
         call.resolve();
     }
 
+    /**
+     * Resolves with the id of the item the controller is on, matching the
+     * {id: string} the TypeScript definitions promise for these methods. Without a
+     * current item there is no id to report, so the call is rejected rather than
+     * resolved with an empty object -- that would reach JS as an undefined id. iOS
+     * rejects the same three methods when it cannot switch item.
+     */
+    protected void resolveWithCurrentId(PluginCall call) {
+        MediaItem mediaItem = mediaController != null ? mediaController.getCurrentMediaItem() : null;
+
+        if (mediaItem == null) {
+            call.reject("No audio item is loaded");
+            return;
+        }
+
+        try {
+            call.resolve(nativeAudioPlayer.prepareIdItem(mediaItem));
+        } catch (Exception e) {
+            Log.e("NATIVE_AUDIO_PLAYER", "Could not read the current item id: " + e.getMessage());
+            call.reject("Could not read the current item id");
+        }
+    }
+
+    protected void releaseController() {
+        if (mediaController != null) {
+            // unregister while the controller is still reachable -- doing this after
+            // the field was nulled meant the guard below short circuited and the
+            // listener was never actually removed
+            unregisterPlayerEvents();
+            mediaController.release();
+            mediaController = null;
+        }
+    }
+
     protected void registerPlayerEvents() {
         if (mediaController != null) {
-            // mediaController.removeListener(this.playerListener); // prevent double add
+            mediaController.removeListener(this.playerListener); // prevent double add
             mediaController.addListener(this.playerListener);
         }
     }
