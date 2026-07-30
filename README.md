@@ -2,6 +2,10 @@
 
 > Play native audio from a Capacitor app.
 
+[![npm version](https://img.shields.io/npm/v/@smartcompanion/native-audio-player.svg)](https://www.npmjs.com/package/@smartcompanion/native-audio-player)
+[![CI](https://github.com/smartcompanion-app/native-audio-player/actions/workflows/ci.yml/badge.svg)](https://github.com/smartcompanion-app/native-audio-player/actions/workflows/ci.yml)
+[![license](https://img.shields.io/npm/l/@smartcompanion/native-audio-player.svg)](LICENSE)
+
 ## ✨ Features
 
  - 🔈 Toggle between `Speaker` and `Earpiece` as audio output
@@ -38,6 +42,108 @@ npx cap sync
 | Android | The plugin has a `AndroidManifest.xml`, which includes all configurations | 
 
 ## Usage
+
+```typescript
+import { NativeAudioPlayer } from '@smartcompanion/native-audio-player';
+
+// 1. Hand over the playlist. The first item is selected and prepared,
+//    but nothing plays yet — call play() when you are ready.
+await NativeAudioPlayer.start({
+  items: [
+    {
+      id: 'elephant',
+      title: 'Elephant',
+      subtitle: 'Animals',
+      audioUri: elephantAudioUri, // local file URI, see below
+      imageUri: elephantImageUri, // shown in the notification / lock screen
+    },
+    {
+      id: 'leopard',
+      title: 'Leopard',
+      subtitle: 'Animals',
+      audioUri: leopardAudioUri,
+      imageUri: leopardImageUri,
+    },
+  ],
+});
+
+// 2. Follow the player state. The event fires for your own calls *and* for
+//    the native notification and lock screen controls, so this is the single
+//    place where your UI stays in sync.
+const listener = await NativeAudioPlayer.addListener('update', async ({ state, id }) => {
+  switch (state) {
+    case 'playing': // playback started or resumed
+    case 'paused': // playback paused
+    case 'skip': // another item became the current one
+      break;
+    case 'completed': // the item reached its end — the player stops there
+      await NativeAudioPlayer.next();
+      await NativeAudioPlayer.play();
+      break;
+  }
+});
+
+// 3. Control playback
+await NativeAudioPlayer.play();
+await NativeAudioPlayer.pause();
+await NativeAudioPlayer.next();
+await NativeAudioPlayer.previous();
+await NativeAudioPlayer.select({ id: 'leopard' });
+await NativeAudioPlayer.seekTo({ position: 30 }); // seconds
+
+const { value: duration } = await NativeAudioPlayer.getDuration(); // seconds
+const { value: position } = await NativeAudioPlayer.getPosition(); // seconds
+
+// 4. Route the audio (no-op on the web)
+await NativeAudioPlayer.setEarpiece();
+await NativeAudioPlayer.setSpeaker();
+
+// 5. Clean up — releases the player and removes the native player UI
+await listener.remove();
+await NativeAudioPlayer.stop();
+```
+
+### Preparing local file URIs
+
+On Android and iOS the player reads audio and images from the device, so remote
+files have to be downloaded once — for example with
+[`@capacitor/filesystem`](https://capacitorjs.com/docs/apis/filesystem) into
+`Directory.Data`. On the web you can pass the remote URL straight through:
+
+```typescript
+import { Capacitor } from '@capacitor/core';
+import { Directory, Filesystem } from '@capacitor/filesystem';
+
+const toLocalUri = async (url: string, filename: string): Promise<string> => {
+  if (Capacitor.getPlatform() === 'web') {
+    return url;
+  }
+
+  const blob = await (await fetch(url)).blob();
+  const data = await new Promise<string>((resolve) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.readAsDataURL(blob);
+  });
+
+  await Filesystem.writeFile({ path: filename, directory: Directory.Data, data });
+  return (await Filesystem.getUri({ path: filename, directory: Directory.Data })).uri;
+};
+
+const elephantAudioUri = await toLocalUri('https://example.com/elephant.mp3', 'elephant.mp3');
+```
+
+On iOS the file is looked up by its filename in the app's documents directory,
+so keep the files flat in `Directory.Data` rather than in sub-folders.
+
+### Good to know
+
+- `start()` only prepares the playlist — playback begins with `play()`.
+- The player does not advance on its own. When an item finishes you get a
+  `completed` event and decide what happens next (see the example above).
+- Positions and durations are whole seconds.
+- `setEarpiece()` / `setSpeaker()` only override the built-in output. When
+  headphones or Bluetooth are connected, that route stays untouched.
 
 In folder `./example` a full usage example is available. This example is also used for automated and manual testing.
 
