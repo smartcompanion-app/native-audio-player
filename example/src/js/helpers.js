@@ -34,9 +34,9 @@ export const downloadFile = async (uri) => {
 };
 
 /**
- * Download a file from the given URI on Android and iOS
- * and write it to the Data directory with the given filename.
- * Do nothing on the web.
+ * Read a file from the given URI on Android and iOS -- either a remote URL or
+ * one of the app's own bundled assets -- and write it to the Data directory
+ * with the given filename. Do nothing on the web.
  */
 export const downloadAndWrite = async (uri, filename) => {
   if (Capacitor.getPlatform() !== 'web') {

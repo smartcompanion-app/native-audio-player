@@ -1,7 +1,10 @@
 import { NativeAudioPlayer } from '@smartcompanion/native-audio-player';
 import { downloadAndWrite } from './helpers';
 
-const basePath = 'https://www.smartcompanion.app/test_data/';
+// The media files ship with the app (see src/public/media). Loading them from
+// the app's own origin instead of a remote host keeps the e2e tests off the
+// network, which is the main source of startup flakiness.
+const basePath = '/media/';
 
 const filenames = ['elephant', 'leopard', 'crocodile'];
 
