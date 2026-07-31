@@ -176,15 +176,18 @@ jobs:
         run: npm run build:android
         working-directory: ./example
       # Appium downloads a chromedriver matching the emulator's webview the
-      # first time a test attaches to it. Caching the appium home directory
-      # keeps that off the network on later runs.
-      - name: Cache Appium home
+      # first time a test attaches to it, and stores it inside the driver
+      # package rather than in a home directory. Restoring it here -- after
+      # npm ci, which would wipe it -- keeps that off the network.
+      - name: Cache chromedriver
         uses: actions/cache@v4
         with:
-          path: ~/.appium
-          key: appium-${{ runner.os }}-${{ hashFiles('example/package-lock.json') }}
+          path: example/node_modules/appium-uiautomator2-driver/node_modules/appium-chromedriver/chromedriver
+          key: chromedriver-${{ runner.os }}-${{ hashFiles('example/package-lock.json') }}
           restore-keys: |
-            appium-${{ runner.os }}-
+            chromedriver-${{ runner.os }}-
+      # The emulator only reuses a snapshot that was created with the same
+      # options, so the key has to change when the workflow does.
       - name: Cache AVD snapshot
         uses: actions/cache@v4
         id: avd-cache
@@ -192,7 +195,7 @@ jobs:
           path: |
             ~/.android/avd/*
             ~/.android/adb*
-          key: avd-${{ env.ANDROID_API_LEVEL }}-google_apis-x86_64
+          key: avd-${{ env.ANDROID_API_LEVEL }}-google_apis-x86_64-${{ hashFiles('.github/workflows/ci.yml') }}
       - name: Create AVD snapshot
         if: steps.avd-cache.outputs.cache-hit != 'true'
         uses: reactivecircus/android-emulator-runner@v2
