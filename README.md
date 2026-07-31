@@ -70,7 +70,7 @@ await NativeAudioPlayer.start({
 // 2. Follow the player state. The event fires for your own calls *and* for
 //    the native notification and lock screen controls, so this is the single
 //    place where your UI stays in sync.
-const listener = await NativeAudioPlayer.addListener('update', async ({ state, id }) => {
+const listener = await NativeAudioPlayer.addListener('audioPlayerChange', async ({ state, id }) => {
   switch (state) {
     case 'playing': // playback started or resumed
     case 'paused': // playback paused
@@ -98,8 +98,20 @@ const { value: position } = await NativeAudioPlayer.getPosition(); // seconds
 await NativeAudioPlayer.setEarpiece();
 await NativeAudioPlayer.setSpeaker();
 
+// 'earpiece' | 'speaker' | 'external', where 'external' means headphones or a
+// bluetooth device are connected and the setting above does not apply.
+const { output } = await NativeAudioPlayer.getAudioOutput();
+
+// The event covers the routes you do not control either — headphones being
+// unplugged, a bluetooth device connecting. It only fires on changes, so query
+// getAudioOutput() once for the initial value.
+const outputListener = await NativeAudioPlayer.addListener('audioOutputChange', ({ output }) => {
+  console.log(`audio now plays through the ${output}`);
+});
+
 // 5. Clean up — releases the player and removes the native player UI
 await listener.remove();
+await outputListener.remove();
 await NativeAudioPlayer.stop();
 ```
 
@@ -174,8 +186,11 @@ In folder `./example` a full usage example is available. This example is also us
 * [`seekTo(...)`](#seekto)
 * [`getDuration()`](#getduration)
 * [`getPosition()`](#getposition)
-* [`addListener('update', ...)`](#addlistenerupdate-)
+* [`getAudioOutput()`](#getaudiooutput)
+* [`addListener('audioPlayerChange', ...)`](#addlisteneraudioplayerchange-)
+* [`addListener('audioOutputChange', ...)`](#addlisteneraudiooutputchange-)
 * [Interfaces](#interfaces)
+* [Type Aliases](#type-aliases)
 
 </docgen-index>
 
@@ -188,7 +203,8 @@ In folder `./example` a full usage example is available. This example is also us
 setEarpiece() => Promise<void>
 ```
 
-Set the audio output to the earpiece.
+Set the audio output to the earpiece. Has no audible effect while an external device
+such as headphones or a bluetooth speaker is connected.
 
 --------------------
 
@@ -199,7 +215,8 @@ Set the audio output to the earpiece.
 setSpeaker() => Promise<void>
 ```
 
-Set the audio output to the speaker.
+Set the audio output to the speaker. Has no audible effect while an external device
+such as headphones or a bluetooth speaker is connected.
 
 --------------------
 
@@ -338,19 +355,53 @@ Get the current position of the audio item in seconds.
 --------------------
 
 
-### addListener('update', ...)
+### getAudioOutput()
 
 ```typescript
-addListener(eventName: 'update', listener: (result: { state: 'playing' | 'paused' | 'skip' | 'completed'; id: string; }) => void) => Promise<PluginListenerHandle>
+getAudioOutput() => Promise<{ output: AudioOutput; }>
 ```
 
-Add an event listener for the update event. The listener should accept an event object
+Get the audio output the player is currently routed to.
+
+**Returns:** <code>Promise&lt;{ output: <a href="#audiooutput">AudioOutput</a>; }&gt;</code>
+
+--------------------
+
+
+### addListener('audioPlayerChange', ...)
+
+```typescript
+addListener(eventName: 'audioPlayerChange', listener: (result: AudioPlayerChange) => void) => Promise<PluginListenerHandle>
+```
+
+Add an event listener for player changes. The listener should accept an event object
 containing the current state and id of the audio item.
 
-| Param           | Type                                                                                                     |
-| --------------- | -------------------------------------------------------------------------------------------------------- |
-| **`eventName`** | <code>'update'</code>                                                                                    |
-| **`listener`**  | <code>(result: { state: 'playing' \| 'paused' \| 'skip' \| 'completed'; id: string; }) =&gt; void</code> |
+| Param           | Type                                                                                 |
+| --------------- | ------------------------------------------------------------------------------------ |
+| **`eventName`** | <code>'audioPlayerChange'</code>                                                     |
+| **`listener`**  | <code>(result: <a href="#audioplayerchange">AudioPlayerChange</a>) =&gt; void</code> |
+
+**Returns:** <code>Promise&lt;<a href="#pluginlistenerhandle">PluginListenerHandle</a>&gt;</code>
+
+--------------------
+
+
+### addListener('audioOutputChange', ...)
+
+```typescript
+addListener(eventName: 'audioOutputChange', listener: (result: AudioOutputChange) => void) => Promise<PluginListenerHandle>
+```
+
+Add an event listener for audio output changes. Fires both when the output is changed
+through {@link NativeAudioPlayerPlugin.setEarpiece} or {@link NativeAudioPlayerPlugin.setSpeaker}
+and when the route changes on its own, e.g. when headphones are unplugged or a bluetooth
+device connects.
+
+| Param           | Type                                                                                 |
+| --------------- | ------------------------------------------------------------------------------------ |
+| **`eventName`** | <code>'audioOutputChange'</code>                                                     |
+| **`listener`**  | <code>(result: <a href="#audiooutputchange">AudioOutputChange</a>) =&gt; void</code> |
 
 **Returns:** <code>Promise&lt;<a href="#pluginlistenerhandle">PluginListenerHandle</a>&gt;</code>
 
@@ -387,5 +438,46 @@ Represents an audio item in the playlist.
 | Prop         | Type                                      |
 | ------------ | ----------------------------------------- |
 | **`remove`** | <code>() =&gt; Promise&lt;void&gt;</code> |
+
+
+#### AudioPlayerChange
+
+The payload of the `audioPlayerChange` event.
+
+| Prop        | Type                                                          | Description                                   |
+| ----------- | ------------------------------------------------------------- | --------------------------------------------- |
+| **`state`** | <code><a href="#audioplayerstate">AudioPlayerState</a></code> | The playback state the player changed to.     |
+| **`id`**    | <code>string</code>                                           | The id of the audio item the state refers to. |
+
+
+#### AudioOutputChange
+
+The payload of the `audioOutputChange` event.
+
+| Prop         | Type                                                | Description                             |
+| ------------ | --------------------------------------------------- | --------------------------------------- |
+| **`output`** | <code><a href="#audiooutput">AudioOutput</a></code> | The audio output the player changed to. |
+
+
+### Type Aliases
+
+
+#### AudioOutput
+
+The audio output the player is routed to.
+
+`external` means the audio is not routed to the built-in earpiece or speaker, which is the
+case whenever an external device such as headphones or a bluetooth speaker is connected.
+The earpiece and speaker settings do not apply while an external device is in use, so
+neither value would describe what is actually heard.
+
+<code>'earpiece' | 'speaker' | 'external'</code>
+
+
+#### AudioPlayerState
+
+The playback state of the player.
+
+<code>'playing' | 'paused' | 'skip' | 'completed'</code>
 
 </docgen-api>

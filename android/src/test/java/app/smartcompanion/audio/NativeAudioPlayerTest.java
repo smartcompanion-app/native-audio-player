@@ -1,5 +1,6 @@
 package app.smartcompanion.audio;
 
+import android.media.AudioDeviceInfo;
 import androidx.media3.common.MediaItem;
 import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
@@ -84,10 +85,10 @@ public class NativeAudioPlayerTest {
     }
 
     @Test
-    public void testShouldPrepareAnUpdateEvent() throws Exception {
+    public void testShouldPrepareAPlayerEvent() throws Exception {
         MediaItem mediaItem = new MediaItem.Builder().setMediaId("item1").build();
 
-        JSObject json = nativeAudioPlayer.prepareUpdateEvent("playing", mediaItem);
+        JSObject json = nativeAudioPlayer.preparePlayerEvent("playing", mediaItem);
 
         Assert.assertEquals("playing", json.getString("state"));
         Assert.assertEquals("item1", json.getString("id"));
@@ -100,5 +101,38 @@ public class NativeAudioPlayerTest {
         JSObject json = nativeAudioPlayer.prepareIdItem(mediaItem);
 
         Assert.assertEquals("item1", json.getString("id"));
+    }
+
+    @Test
+    public void testShouldPrepareAnOutputEvent() throws Exception {
+        JSObject json = nativeAudioPlayer.prepareOutputEvent("earpiece");
+
+        Assert.assertEquals("earpiece", json.getString("output"));
+    }
+
+    @Test
+    public void testShouldResolveOutputToTheRequestedChannelWithoutExternalDevices() {
+        int[] builtIn = { AudioDeviceInfo.TYPE_BUILTIN_EARPIECE, AudioDeviceInfo.TYPE_BUILTIN_SPEAKER };
+
+        Assert.assertEquals("earpiece", nativeAudioPlayer.resolveAudioOutput(builtIn, "earpiece"));
+        Assert.assertEquals("speaker", nativeAudioPlayer.resolveAudioOutput(builtIn, "speaker"));
+    }
+
+    @Test
+    public void testShouldResolveOutputToExternalWhileAnExternalDeviceIsConnected() {
+        int[] withHeadphones = { AudioDeviceInfo.TYPE_BUILTIN_SPEAKER, AudioDeviceInfo.TYPE_WIRED_HEADPHONES };
+        int[] withBluetooth = { AudioDeviceInfo.TYPE_BUILTIN_SPEAKER, AudioDeviceInfo.TYPE_BLUETOOTH_A2DP };
+
+        // the requested channel no longer describes what is heard, whichever one it was
+        Assert.assertEquals("external", nativeAudioPlayer.resolveAudioOutput(withHeadphones, "earpiece"));
+        Assert.assertEquals("external", nativeAudioPlayer.resolveAudioOutput(withBluetooth, "speaker"));
+    }
+
+    @Test
+    public void testShouldFallBackToSpeakerForAnUnknownChannel() {
+        int[] builtIn = { AudioDeviceInfo.TYPE_BUILTIN_SPEAKER };
+
+        Assert.assertEquals("speaker", nativeAudioPlayer.resolveAudioOutput(builtIn, null));
+        Assert.assertEquals("speaker", nativeAudioPlayer.resolveAudioOutput(builtIn, "nonsense"));
     }
 }

@@ -3,6 +3,9 @@ package app.smartcompanion.audio;
 import android.Manifest;
 import android.content.ComponentName;
 import android.content.Context;
+import android.media.AudioDeviceCallback;
+import android.media.AudioDeviceInfo;
+import android.media.AudioManager;
 import android.os.Bundle;
 import android.util.Log;
 import androidx.annotation.Nullable;
@@ -43,6 +46,18 @@ public class NativeAudioPlayerPlugin extends Plugin {
 
     protected List<MediaItem> mediaItems;
 
+    /**
+     * The channel last requested through setEarpiece/setSpeaker. The service starts its player
+     * on the speaker, see {@link AudioPlayerService#onCreate()}.
+     */
+    protected String requestedChannel = NativeAudioPlayer.OUTPUT_SPEAKER;
+
+    /**
+     * The last output reported through the audioOutputChange event, so device changes that
+     * leave the resolved output as it was stay silent.
+     */
+    protected String notifiedAudioOutput;
+
     protected Player.Listener playerListener = new Player.Listener() {
         @Override
         public void onMediaItemTransition(@Nullable MediaItem mediaItem, int reason) {
@@ -65,9 +80,9 @@ public class NativeAudioPlayerPlugin extends Plugin {
             }
 
             try {
-                JSObject json = nativeAudioPlayer.prepareUpdateEvent("skip", mediaItem);
+                JSObject json = nativeAudioPlayer.preparePlayerEvent("skip", mediaItem);
                 controller.pause();
-                notifyListeners("update", json);
+                notifyListeners("audioPlayerChange", json);
             } catch (Exception e) {
                 Log.e("NATIVE_AUDIO_PLAYER", "Could not trigger skip event: " + e.getMessage());
             }
@@ -76,11 +91,11 @@ public class NativeAudioPlayerPlugin extends Plugin {
         @Override
         public void onIsPlayingChanged(boolean isPlaying) {
             try {
-                JSObject json = nativeAudioPlayer.prepareUpdateEvent(
+                JSObject json = nativeAudioPlayer.preparePlayerEvent(
                     isPlaying ? "playing" : "paused",
                     Objects.requireNonNull(mediaController.getCurrentMediaItem())
                 );
-                notifyListeners("update", json);
+                notifyListeners("audioPlayerChange", json);
             } catch (Exception e) {
                 Log.e("NATIVE_AUDIO_PLAYER", "Could not trigger play/pause event: " + e.getMessage());
             }
@@ -92,15 +107,31 @@ public class NativeAudioPlayerPlugin extends Plugin {
 
             if (playbackState == Player.STATE_ENDED) {
                 try {
-                    JSObject json = nativeAudioPlayer.prepareUpdateEvent(
+                    JSObject json = nativeAudioPlayer.preparePlayerEvent(
                         "completed",
                         Objects.requireNonNull(mediaController.getCurrentMediaItem())
                     );
-                    notifyListeners("update", json);
+                    notifyListeners("audioPlayerChange", json);
                 } catch (Exception e) {
                     Log.e("NATIVE_AUDIO_PLAYER", "Could not trigger ended event: " + e.getMessage());
                 }
             }
+        }
+    };
+
+    /**
+     * Catches the output changes this plugin does not cause itself, e.g. headphones being
+     * unplugged or a bluetooth device connecting.
+     */
+    protected AudioDeviceCallback audioDeviceCallback = new AudioDeviceCallback() {
+        @Override
+        public void onAudioDevicesAdded(AudioDeviceInfo[] addedDevices) {
+            notifyAudioOutputChange();
+        }
+
+        @Override
+        public void onAudioDevicesRemoved(AudioDeviceInfo[] removedDevices) {
+            notifyAudioOutputChange();
         }
     };
 
@@ -278,23 +309,76 @@ public class NativeAudioPlayerPlugin extends Plugin {
     }
 
     @PluginMethod
+    public void getAudioOutput(PluginCall call) {
+        JSObject result = new JSObject();
+        result.put("output", resolveAudioOutput());
+        call.resolve(result);
+    }
+
+    @PluginMethod
     public void setEarpiece(PluginCall call) {
-        if (mediaController != null) {
-            Bundle bundle = new Bundle();
-            bundle.putString("CHANNEL", "earpiece");
-            mediaController.sendCustomCommand(new SessionCommand("CHANNEL", bundle), bundle);
-        }
+        setChannel(NativeAudioPlayer.OUTPUT_EARPIECE);
         call.resolve();
     }
 
     @PluginMethod
     public void setSpeaker(PluginCall call) {
+        setChannel(NativeAudioPlayer.OUTPUT_SPEAKER);
+        call.resolve();
+    }
+
+    protected void setChannel(String channel) {
+        requestedChannel = channel;
+
         if (mediaController != null) {
             Bundle bundle = new Bundle();
-            bundle.putString("CHANNEL", "speaker");
+            bundle.putString("CHANNEL", channel);
             mediaController.sendCustomCommand(new SessionCommand("CHANNEL", bundle), bundle);
         }
-        call.resolve();
+
+        notifyAudioOutputChange();
+    }
+
+    protected String resolveAudioOutput() {
+        AudioManager audioManager = getAudioManager();
+
+        if (audioManager == null) {
+            return requestedChannel;
+        }
+
+        AudioDeviceInfo[] devices = audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS);
+        int[] deviceTypes = new int[devices.length];
+        for (int i = 0; i < devices.length; i++) {
+            deviceTypes[i] = devices[i].getType();
+        }
+
+        return nativeAudioPlayer.resolveAudioOutput(deviceTypes, requestedChannel);
+    }
+
+    protected void notifyAudioOutputChange() {
+        try {
+            String output = resolveAudioOutput();
+
+            if (!output.equals(notifiedAudioOutput)) {
+                notifiedAudioOutput = output;
+                notifyListeners("audioOutputChange", nativeAudioPlayer.prepareOutputEvent(output));
+            }
+        } catch (Exception e) {
+            Log.e("NATIVE_AUDIO_PLAYER", "Could not trigger audio output event: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Null while the plugin is not attached to a bridge yet -- Plugin#getContext dereferences
+     * the bridge rather than returning null, so asking for it early throws.
+     */
+    protected AudioManager getAudioManager() {
+        try {
+            Context context = getContext();
+            return context != null ? (AudioManager) context.getSystemService(Context.AUDIO_SERVICE) : null;
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     /**
@@ -336,11 +420,25 @@ public class NativeAudioPlayerPlugin extends Plugin {
             mediaController.removeListener(this.playerListener); // prevent double add
             mediaController.addListener(this.playerListener);
         }
+
+        AudioManager audioManager = getAudioManager();
+        if (audioManager != null) {
+            // seed the baseline first, the callback fires straight away with the devices
+            // that are already connected and that is not a change worth reporting
+            notifiedAudioOutput = resolveAudioOutput();
+            audioManager.unregisterAudioDeviceCallback(audioDeviceCallback); // prevent double add
+            audioManager.registerAudioDeviceCallback(audioDeviceCallback, null);
+        }
     }
 
     protected void unregisterPlayerEvents() {
         if (mediaController != null) {
             mediaController.removeListener(this.playerListener);
+        }
+
+        AudioManager audioManager = getAudioManager();
+        if (audioManager != null) {
+            audioManager.unregisterAudioDeviceCallback(audioDeviceCallback);
         }
     }
 }

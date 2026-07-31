@@ -138,4 +138,16 @@ class NativeAudioPlayerTests: XCTestCase {
 
         XCTAssertNil(MPNowPlayingInfoCenter.default().nowPlayingInfo)
     }
+
+    func testAudioOutputMapsTheBuiltInPorts() {
+        XCTAssertEqual(NativeAudioPlayer.audioOutput(for: .builtInReceiver), "earpiece")
+        XCTAssertEqual(NativeAudioPlayer.audioOutput(for: .builtInSpeaker), "speaker")
+    }
+
+    func testAudioOutputReportsExternalRoutesAsExternal() {
+        // the earpiece/speaker override does not apply to these, so neither value would be true
+        XCTAssertEqual(NativeAudioPlayer.audioOutput(for: .bluetoothA2DP), "external")
+        XCTAssertEqual(NativeAudioPlayer.audioOutput(for: .headphones), "external")
+        XCTAssertEqual(NativeAudioPlayer.audioOutput(for: nil), "external")
+    }
 }

@@ -242,7 +242,7 @@ public class NativeAudioPlayerPluginTest {
     }
 
     // A second start() used to leave the previous listener attached, so every
-    // update event was delivered twice.
+    // audioPlayerChange event was delivered twice.
 
     @Test
     public void testRegisterPlayerEventsRemovesBeforeAdding() {

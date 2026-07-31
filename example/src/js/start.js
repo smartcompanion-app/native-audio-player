@@ -23,6 +23,10 @@ const updatePosition = async () => {
   }
 };
 
+const setAudioOutput = (output) => {
+  document.querySelector('#audio-output').innerHTML = output.toUpperCase();
+};
+
 const setActiveItem = async (id) => {
   const select = document.querySelector('#select');
   select.querySelectorAll('button').forEach((button) => {
@@ -48,6 +52,9 @@ const load = async () => {
   await NativeAudioPlayer.start({
     items: items,
   });
+
+  // the event only fires on changes, so the initial output has to be queried
+  setAudioOutput((await NativeAudioPlayer.getAudioOutput()).output);
 
   document.querySelector('#play-pause').removeAttribute('disabled');
   document.querySelector('#prev').removeAttribute('disabled');
@@ -113,7 +120,11 @@ document.querySelector('#select').addEventListener('click', async (e) => {
 });
 
 (async () => {
-  await NativeAudioPlayer.addListener('update', async (data) => {
+  await NativeAudioPlayer.addListener('audioOutputChange', (data) => {
+    setAudioOutput(data.output);
+  });
+
+  await NativeAudioPlayer.addListener('audioPlayerChange', async (data) => {
     if (data.state == 'playing') {
       document.querySelector('#play-pause').innerHTML = 'PAUSE';
       await updatePosition();

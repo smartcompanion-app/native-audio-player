@@ -31,6 +31,29 @@ import UIKit
         currentItem?.subtitle ?? ""
     }
     var onCompleted: ((_ id: String) -> Void)?
+    var onAudioOutputChanged: ((_ output: String) -> Void)?
+
+    /// The output the session is routed to right now, which is not necessarily the one that
+    /// was requested: the earpiece/speaker override is skipped while an external device is
+    /// connected, see `load()`.
+    var audioOutput: String {
+        NativeAudioPlayer.audioOutput(for: AVAudioSession.sharedInstance().currentRoute.outputs.first?.portType)
+    }
+
+    /// The last output handed to `onAudioOutputChanged`, so route changes that leave the
+    /// output as it was -- switching between two bluetooth devices, say -- stay silent.
+    private var notifiedAudioOutput: String?
+
+    static func audioOutput(for portType: AVAudioSession.Port?) -> String {
+        switch portType {
+        case .builtInReceiver:
+            return "earpiece"
+        case .builtInSpeaker:
+            return "speaker"
+        default:
+            return "external"
+        }
+    }
 
     init(_ items: [[String: Any]]) {
         for item in items {
@@ -45,11 +68,40 @@ import UIKit
     }
 
     deinit {
+        NotificationCenter.default.removeObserver(self)
+
         // only tear down when this instance still owns a player: an instance that
         // never loaded must not deactivate the session or clear the lock screen
         // that a different instance has since taken over
         if audioPlayer != nil {
             stop()
+        }
+    }
+
+    /// Starts reporting output changes, both the ones this plugin causes and the ones the
+    /// user causes by plugging in headphones or connecting a bluetooth device.
+    func observeAudioOutput() {
+        notifiedAudioOutput = audioOutput
+
+        NotificationCenter.default.removeObserver(self, name: AVAudioSession.routeChangeNotification, object: nil)
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleRouteChange),
+            name: AVAudioSession.routeChangeNotification,
+            object: nil
+        )
+    }
+
+    @objc private func handleRouteChange(_ notification: Notification) {
+        notifyAudioOutputChange()
+    }
+
+    func notifyAudioOutputChange() {
+        let output = audioOutput
+
+        if output != notifiedAudioOutput {
+            notifiedAudioOutput = output
+            onAudioOutputChanged?(output)
         }
     }
 
@@ -188,6 +240,7 @@ import UIKit
         earpiece = true
         load()
         seekTo(oldPosition)
+        notifyAudioOutputChange()
     }
 
     func setSpeaker() {
@@ -196,6 +249,7 @@ import UIKit
         earpiece = false
         load()
         seekTo(oldPosition)
+        notifyAudioOutputChange()
     }
 
     func initLockScreen(_ position: Int = 0) {

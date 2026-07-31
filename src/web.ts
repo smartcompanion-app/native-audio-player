@@ -1,6 +1,6 @@
 import { WebPlugin } from '@capacitor/core';
 
-import type { NativeAudioPlayerPlugin, StartOptions, Item } from './definitions';
+import type { NativeAudioPlayerPlugin, StartOptions, Item, AudioOutput } from './definitions';
 
 const getMediaSession = () => {
   return 'mediaSession' in navigator ? (navigator as any).mediaSession : null;
@@ -68,6 +68,12 @@ export class NativeAudioPlayerWeb extends WebPlugin implements NativeAudioPlayer
     console.log('setSpeaker not implemented on the web');
   }
 
+  // The browser picks the output device itself and gives no way to route to an earpiece,
+  // so the plugin never controls the route on the web and always reports it as 'external'.
+  async getAudioOutput(): Promise<{ output: AudioOutput }> {
+    return { output: 'external' };
+  }
+
   async start(options: StartOptions): Promise<{ id: string }> {
     this.currentIndex = 0;
     this.items = JSON.parse(JSON.stringify(options.items));
@@ -87,7 +93,7 @@ export class NativeAudioPlayerWeb extends WebPlugin implements NativeAudioPlayer
     const audioElement = this.getAudioElement();
     if (audioElement) {
       await audioElement.play();
-      this.notifyListeners('update', { id: this.items[this.currentIndex].id, state: 'playing' });
+      this.notifyListeners('audioPlayerChange', { id: this.items[this.currentIndex].id, state: 'playing' });
     }
   }
 
@@ -95,7 +101,7 @@ export class NativeAudioPlayerWeb extends WebPlugin implements NativeAudioPlayer
     const audioElement = this.getAudioElement();
     if (audioElement) {
       await audioElement.pause();
-      this.notifyListeners('update', { id: this.items[this.currentIndex].id, state: 'paused' });
+      this.notifyListeners('audioPlayerChange', { id: this.items[this.currentIndex].id, state: 'paused' });
     }
   }
 
@@ -105,7 +111,7 @@ export class NativeAudioPlayerWeb extends WebPlugin implements NativeAudioPlayer
     if (index >= 0) {
       this.currentIndex = index;
       const result = await this.loadAudio(this.items[this.currentIndex]);
-      this.notifyListeners('update', { state: 'skip', id: result.id });
+      this.notifyListeners('audioPlayerChange', { state: 'skip', id: result.id });
       return result;
     }
 
@@ -120,7 +126,7 @@ export class NativeAudioPlayerWeb extends WebPlugin implements NativeAudioPlayer
     }
 
     const result = await this.loadAudio(this.items[this.currentIndex]);
-    this.notifyListeners('update', { state: 'skip', id: result.id });
+    this.notifyListeners('audioPlayerChange', { state: 'skip', id: result.id });
     return result;
   }
 
@@ -132,7 +138,7 @@ export class NativeAudioPlayerWeb extends WebPlugin implements NativeAudioPlayer
     }
 
     const result = await this.loadAudio(this.items[this.currentIndex]);
-    this.notifyListeners('update', { state: 'skip', id: result.id });
+    this.notifyListeners('audioPlayerChange', { state: 'skip', id: result.id });
     return result;
   }
 
@@ -166,7 +172,7 @@ export class NativeAudioPlayerWeb extends WebPlugin implements NativeAudioPlayer
         resolve({ id: item.id });
       });
       audio.addEventListener('ended', () => {
-        this.notifyListeners('update', { state: 'completed', id: item.id });
+        this.notifyListeners('audioPlayerChange', { state: 'completed', id: item.id });
       });
       audio.setAttribute('id', 'web-audio');
       audio.src = item.audioUri;

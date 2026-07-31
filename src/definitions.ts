@@ -2,13 +2,15 @@ import type { PluginListenerHandle } from '@capacitor/core';
 
 export interface NativeAudioPlayerPlugin {
   /**
-   * Set the audio output to the earpiece.
+   * Set the audio output to the earpiece. Has no audible effect while an external device
+   * such as headphones or a bluetooth speaker is connected.
    * @returns {Promise<void>} A promise that resolves when the audio output is set to the earpiece.
    */
   setEarpiece(): Promise<void>;
 
   /**
-   * Set the audio output to the speaker.
+   * Set the audio output to the speaker. Has no audible effect while an external device
+   * such as headphones or a bluetooth speaker is connected.
    * @returns {Promise<void>} A promise that resolves when the audio output is set to the speaker.
    */
   setSpeaker(): Promise<void>;
@@ -77,14 +79,72 @@ export interface NativeAudioPlayerPlugin {
   getPosition(): Promise<{ value: number }>;
 
   /**
-   * Add an event listener for the update event. The listener should accept an event object
+   * Get the audio output the player is currently routed to.
+   * @returns {Promise<{output: AudioOutput}>} The current audio output.
+   */
+  getAudioOutput(): Promise<{ output: AudioOutput }>;
+
+  /**
+   * Add an event listener for player changes. The listener should accept an event object
    * containing the current state and id of the audio item.
    * @returns {Promise<PluginListenerHandle>} The listener can be removed using the returned handle.
    */
   addListener(
-    eventName: 'update',
-    listener: (result: { state: 'playing' | 'paused' | 'skip' | 'completed'; id: string }) => void,
+    eventName: 'audioPlayerChange',
+    listener: (result: AudioPlayerChange) => void,
   ): Promise<PluginListenerHandle>;
+
+  /**
+   * Add an event listener for audio output changes. Fires both when the output is changed
+   * through {@link NativeAudioPlayerPlugin.setEarpiece} or {@link NativeAudioPlayerPlugin.setSpeaker}
+   * and when the route changes on its own, e.g. when headphones are unplugged or a bluetooth
+   * device connects.
+   * @returns {Promise<PluginListenerHandle>} The listener can be removed using the returned handle.
+   */
+  addListener(
+    eventName: 'audioOutputChange',
+    listener: (result: AudioOutputChange) => void,
+  ): Promise<PluginListenerHandle>;
+}
+
+/**
+ * The playback state of the player.
+ */
+export type AudioPlayerState = 'playing' | 'paused' | 'skip' | 'completed';
+
+/**
+ * The audio output the player is routed to.
+ *
+ * `external` means the audio is not routed to the built-in earpiece or speaker, which is the
+ * case whenever an external device such as headphones or a bluetooth speaker is connected.
+ * The earpiece and speaker settings do not apply while an external device is in use, so
+ * neither value would describe what is actually heard.
+ */
+export type AudioOutput = 'earpiece' | 'speaker' | 'external';
+
+/**
+ * The payload of the `audioPlayerChange` event.
+ */
+export interface AudioPlayerChange {
+  /**
+   * The playback state the player changed to.
+   */
+  state: AudioPlayerState;
+
+  /**
+   * The id of the audio item the state refers to.
+   */
+  id: string;
+}
+
+/**
+ * The payload of the `audioOutputChange` event.
+ */
+export interface AudioOutputChange {
+  /**
+   * The audio output the player changed to.
+   */
+  output: AudioOutput;
 }
 
 /**

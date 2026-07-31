@@ -18,6 +18,7 @@ public class NativeAudioPlayerPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "seekTo", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "getPosition", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "getDuration", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "getAudioOutput", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "setEarpiece", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "setSpeaker", returnType: CAPPluginReturnPromise)
     ]
@@ -44,8 +45,13 @@ public class NativeAudioPlayerPlugin: CAPPlugin, CAPBridgedPlugin {
         player.onCompleted = { [weak self] id in
             self?.onCompleted(id)
         }
+        player.onAudioOutputChanged = { [weak self] output in
+            self?.onAudioOutputChanged(output)
+        }
 
         if player.load() {
+            player.observeAudioOutput()
+
             let commandCenter = MPRemoteCommandCenter.shared()
 
             setTarget(commandCenter.pauseCommand, &pauseTarget) { [weak self] _ in
@@ -108,7 +114,7 @@ public class NativeAudioPlayerPlugin: CAPPlugin, CAPBridgedPlugin {
         let id = call.getString("id") ?? ""
 
         if player.select(id) {
-            self.notifyListeners("update", data: ["id": player.currentId, "state": "skip"])
+            self.notifyListeners("audioPlayerChange", data: ["id": player.currentId, "state": "skip"])
             call.resolve(["id": player.currentId])
         } else {
             call.reject("could not switch to item with given id")
@@ -145,14 +151,19 @@ public class NativeAudioPlayerPlugin: CAPPlugin, CAPBridgedPlugin {
         call.resolve(["value": player.duration])
     }
 
+    @objc func getAudioOutput(_ call: CAPPluginCall) {
+        call.resolve(["output": player.audioOutput])
+    }
+
     @objc func setEarpiece(_ call: CAPPluginCall) {
-        self.notifyListeners("update", data: ["id": player.currentId, "state": "paused"])
+        // switching the output reloads the player, which leaves it paused
+        self.notifyListeners("audioPlayerChange", data: ["id": player.currentId, "state": "paused"])
         player.setEarpiece()
         call.resolve()
     }
 
     @objc func setSpeaker(_ call: CAPPluginCall) {
-        self.notifyListeners("update", data: ["id": player.currentId, "state": "paused"])
+        self.notifyListeners("audioPlayerChange", data: ["id": player.currentId, "state": "paused"])
         player.setSpeaker()
         call.resolve()
     }
@@ -198,17 +209,17 @@ public class NativeAudioPlayerPlugin: CAPPlugin, CAPBridgedPlugin {
 
     private func onPlay() {
         player.play()
-        self.notifyListeners("update", data: ["id": player.currentId, "state": "playing"])
+        self.notifyListeners("audioPlayerChange", data: ["id": player.currentId, "state": "playing"])
     }
 
     private func onPause() {
         player.pause()
-        self.notifyListeners("update", data: ["id": player.currentId, "state": "paused"])
+        self.notifyListeners("audioPlayerChange", data: ["id": player.currentId, "state": "paused"])
     }
 
     private func onNext() -> Bool {
         if player.next() {
-            self.notifyListeners("update", data: ["id": player.currentId, "state": "skip"])
+            self.notifyListeners("audioPlayerChange", data: ["id": player.currentId, "state": "skip"])
             return true
         } else {
             return false
@@ -217,7 +228,7 @@ public class NativeAudioPlayerPlugin: CAPPlugin, CAPBridgedPlugin {
 
     private func onPrevious() -> Bool {
         if player.previous() {
-            self.notifyListeners("update", data: ["id": player.currentId, "state": "skip"])
+            self.notifyListeners("audioPlayerChange", data: ["id": player.currentId, "state": "skip"])
             return true
         } else {
             return false
@@ -225,7 +236,11 @@ public class NativeAudioPlayerPlugin: CAPPlugin, CAPBridgedPlugin {
     }
 
     private func onCompleted(_ id: String) {
-        self.notifyListeners("update", data: ["id": id, "state": "completed"])
+        self.notifyListeners("audioPlayerChange", data: ["id": id, "state": "completed"])
+    }
+
+    private func onAudioOutputChanged(_ output: String) {
+        self.notifyListeners("audioOutputChange", data: ["output": output])
     }
 
 }

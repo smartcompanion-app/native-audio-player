@@ -4,7 +4,7 @@ import MediaPlayer
 import UIKit
 @testable import NativeAudioPlayerPlugin
 
-/// Captures the `update` events the plugin emits. Overriding `notifyListeners`
+/// Captures the events the plugin emits. Overriding `notifyListeners`
 /// keeps these tests free of a `CapacitorBridge`, which cannot be built headless.
 private class RecordingPlugin: NativeAudioPlayerPlugin {
     private(set) var events: [(name: String, data: [String: Any])] = []
