@@ -83,7 +83,7 @@ public class NativeAudioPlayer {
      */
     public String resolveAudioOutput(int[] deviceTypes, String requestedChannel) {
         for (int deviceType : deviceTypes) {
-            if (isExternalOutput(deviceType)) {
+            if (!isOnDeviceOutput(deviceType)) {
                 return OUTPUT_EXTERNAL;
             }
         }
@@ -91,16 +91,30 @@ public class NativeAudioPlayer {
         return OUTPUT_EARPIECE.equals(requestedChannel) ? OUTPUT_EARPIECE : OUTPUT_SPEAKER;
     }
 
-    public boolean isExternalOutput(int deviceType) {
+    /**
+     * Whether a device type is one the phone always has, so anything else present means the
+     * audio left the phone.
+     * <p>
+     * Listing these rather than listing the external types is deliberate. The set of external
+     * types keeps growing -- LE audio, HDMI, docks, aux and USB variants -- and a missing entry
+     * fails silently in the wrong direction, reporting the earpiece or speaker while the audio
+     * plays somewhere else entirely. The on-device set is short and does not grow.
+     * <p>
+     * It is not only the two outputs the plugin switches between: getDevices() also reports
+     * virtual outputs that are always there and are never a route the user hears the player
+     * through, and treating those as external would pin the answer to `external` on every device.
+     */
+    public boolean isOnDeviceOutput(int deviceType) {
         switch (deviceType) {
-            case AudioDeviceInfo.TYPE_WIRED_HEADSET:
-            case AudioDeviceInfo.TYPE_WIRED_HEADPHONES:
-            case AudioDeviceInfo.TYPE_BLUETOOTH_SCO:
-            case AudioDeviceInfo.TYPE_BLUETOOTH_A2DP:
-            case AudioDeviceInfo.TYPE_USB_DEVICE:
-            case AudioDeviceInfo.TYPE_USB_HEADSET:
-            case AudioDeviceInfo.TYPE_USB_ACCESSORY:
-            case AudioDeviceInfo.TYPE_HEARING_AID:
+            case AudioDeviceInfo.TYPE_BUILTIN_EARPIECE:
+            case AudioDeviceInfo.TYPE_BUILTIN_SPEAKER:
+            // the low volume speaker path, reported alongside the normal one since API 30
+            case AudioDeviceInfo.TYPE_BUILTIN_SPEAKER_SAFE:
+            // the telephony network, present on every phone
+            case AudioDeviceInfo.TYPE_TELEPHONY:
+            // the loopback the emulator and screen recording expose
+            case AudioDeviceInfo.TYPE_REMOTE_SUBMIX:
+            case AudioDeviceInfo.TYPE_UNKNOWN:
                 return true;
             default:
                 return false;

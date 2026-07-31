@@ -118,6 +118,25 @@ public class NativeAudioPlayerTest {
         Assert.assertEquals("speaker", nativeAudioPlayer.resolveAudioOutput(builtIn, "speaker"));
     }
 
+    /**
+     * getDevices() reports these on a plain phone with nothing plugged in. Treating anything
+     * that is not the earpiece or the speaker as external would pin the answer to `external`
+     * here, on every device, forever.
+     */
+    @Test
+    public void testShouldNotTreatTheAlwaysPresentVirtualOutputsAsExternal() {
+        int[] plainPhone = {
+            AudioDeviceInfo.TYPE_BUILTIN_EARPIECE,
+            AudioDeviceInfo.TYPE_BUILTIN_SPEAKER,
+            AudioDeviceInfo.TYPE_BUILTIN_SPEAKER_SAFE,
+            AudioDeviceInfo.TYPE_TELEPHONY,
+            AudioDeviceInfo.TYPE_REMOTE_SUBMIX
+        };
+
+        Assert.assertEquals("speaker", nativeAudioPlayer.resolveAudioOutput(plainPhone, "speaker"));
+        Assert.assertEquals("earpiece", nativeAudioPlayer.resolveAudioOutput(plainPhone, "earpiece"));
+    }
+
     @Test
     public void testShouldResolveOutputToExternalWhileAnExternalDeviceIsConnected() {
         int[] withHeadphones = { AudioDeviceInfo.TYPE_BUILTIN_SPEAKER, AudioDeviceInfo.TYPE_WIRED_HEADPHONES };
@@ -126,6 +145,36 @@ public class NativeAudioPlayerTest {
         // the requested channel no longer describes what is heard, whichever one it was
         Assert.assertEquals("external", nativeAudioPlayer.resolveAudioOutput(withHeadphones, "earpiece"));
         Assert.assertEquals("external", nativeAudioPlayer.resolveAudioOutput(withBluetooth, "speaker"));
+    }
+
+    /**
+     * These are the ones an allow list of external types kept missing: LE audio arrived in
+     * API 31, and HDMI, docks and line outs were never in it to begin with.
+     */
+    @Test
+    public void testShouldResolveOutputToExternalForTheLessCommonRoutes() {
+        int[] externalTypes = {
+            AudioDeviceInfo.TYPE_BLE_HEADSET,
+            AudioDeviceInfo.TYPE_BLE_SPEAKER,
+            AudioDeviceInfo.TYPE_BLE_BROADCAST,
+            AudioDeviceInfo.TYPE_HDMI,
+            AudioDeviceInfo.TYPE_HDMI_ARC,
+            AudioDeviceInfo.TYPE_DOCK,
+            AudioDeviceInfo.TYPE_AUX_LINE,
+            AudioDeviceInfo.TYPE_LINE_ANALOG,
+            AudioDeviceInfo.TYPE_USB_HEADSET,
+            AudioDeviceInfo.TYPE_HEARING_AID
+        };
+
+        for (int externalType : externalTypes) {
+            int[] devices = { AudioDeviceInfo.TYPE_BUILTIN_SPEAKER, externalType };
+
+            Assert.assertEquals(
+                "device type " + externalType + " should be reported as external",
+                "external",
+                nativeAudioPlayer.resolveAudioOutput(devices, "speaker")
+            );
+        }
     }
 
     @Test
