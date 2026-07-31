@@ -122,6 +122,12 @@ jobs:
           echo "Booting iPhone 16 (iOS 18.6) with UDID: $UDID"
           xcrun simctl boot "$UDID"
           xcrun simctl bootstatus "$UDID" -b
+      # appium-xcuitest-driver resolves the SDK version during session creation
+      # with a hardcoded 15s timeout. The first xcrun call on a cold runner can
+      # exceed that, which fails the session before any test runs. Warm it here,
+      # where being slow costs time instead of the whole job.
+      - name: Warm up Xcode toolchain
+        run: xcrun --sdk iphonesimulator --show-sdk-version
       - name: Run Tests on iOS Simulator
         run: npm run test:ios
         working-directory: ./example
