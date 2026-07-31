@@ -4,7 +4,10 @@ export const config = {
   runner: 'local',
   framework: 'mocha',
   port: 4723,
-  connectionRetryTimeout: 120000,
+  // Creating the iOS session includes compiling WebDriverAgent from source,
+  // which takes several minutes on a cold runner. This is an upper bound, not
+  // a delay -- lowering it saves nothing and just cuts off a slow build.
+  connectionRetryTimeout: 600000,
   connectionRetryCount: 3,
 
   // wdio writes its own logs here, and the appium service inherits the path for
@@ -27,11 +30,14 @@ export const config = {
       'appium:bundleId': 'app.smartcompanion.audio.plugin.example',
       'appium:useNewWDA': false,
       'appium:showXcodeLog': true,
+      // Fewer retries bound the worst case, and the interval is the only one of
+      // these that is actually spent -- it is a sleep between attempts. The
+      // timeouts below are upper bounds and stay generous on purpose.
       'appium:wdaStartupRetries': 2,
       'appium:wdaStartupRetryInterval': 30000,
-      'appium:wdaLaunchTimeout': 240000,
-      'appium:wdaConnectionTimeout': 240000,
-      'appium:simulatorStartupTimeout': 300000,
+      'appium:wdaLaunchTimeout': 600000,
+      'appium:wdaConnectionTimeout': 600000,
+      'appium:simulatorStartupTimeout': 600000,
     } : {
       platformName: 'Android',
       'appium:app': './android/app/build/outputs/apk/debug/app-debug.apk',
