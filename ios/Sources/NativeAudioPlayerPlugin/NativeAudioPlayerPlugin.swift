@@ -45,8 +45,8 @@ public class NativeAudioPlayerPlugin: CAPPlugin, CAPBridgedPlugin {
         player.onCompleted = { [weak self] id in
             self?.onCompleted(id)
         }
-        player.onAudioOutputChanged = { [weak self] output in
-            self?.onAudioOutputChanged(output)
+        player.onAudioOutputChanged = { [weak self] output, didPause in
+            self?.onAudioOutputChanged(output, didPause)
         }
 
         if player.load() {
@@ -239,7 +239,11 @@ public class NativeAudioPlayerPlugin: CAPPlugin, CAPBridgedPlugin {
         self.notifyListeners("audioPlayerChange", data: ["id": id, "state": "completed"])
     }
 
-    private func onAudioOutputChanged(_ output: String) {
+    private func onAudioOutputChanged(_ output: String, _ didPause: Bool) {
+        if didPause {
+            self.notifyListeners("audioPlayerChange", data: ["id": player.currentId, "state": "paused"])
+        }
+
         self.notifyListeners("audioOutputChange", data: ["output": output])
     }
 

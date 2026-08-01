@@ -31,7 +31,10 @@ import UIKit
         currentItem?.subtitle ?? ""
     }
     var onCompleted: ((_ id: String) -> Void)?
-    var onAudioOutputChanged: ((_ output: String) -> Void)?
+
+    /// `didPause` reports whether the output change stopped playback, so the plugin only
+    /// announces a pause that actually happened.
+    var onAudioOutputChanged: ((_ output: String, _ didPause: Bool) -> Void)?
 
     /// The output the session is routed to right now, which is not necessarily the one that
     /// was requested: the earpiece/speaker override is skipped while an external device is
@@ -42,7 +45,8 @@ import UIKit
 
     /// The last output handed to `onAudioOutputChanged`, so route changes that leave the
     /// output as it was -- switching between two bluetooth devices, say -- stay silent.
-    private var notifiedAudioOutput: String?
+    /// Not private so the tests can seed a route the host machine does not have.
+    var notifiedAudioOutput: String?
 
     static func audioOutput(for portType: AVAudioSession.Port?) -> String {
         switch portType {
@@ -101,7 +105,17 @@ import UIKit
 
         if output != notifiedAudioOutput {
             notifiedAudioOutput = output
-            onAudioOutputChanged?(output)
+
+            // audio that was going to the earpiece must not carry on out loud once the route
+            // changed, so playback stops on every output change and the app decides whether to
+            // resume. setEarpiece/setSpeaker have already paused by the time they get here, so
+            // this only reports a pause for the route changes the plugin did not cause.
+            let didPause = audioPlayer?.isPlaying == true
+            if didPause {
+                pause()
+            }
+
+            onAudioOutputChanged?(output, didPause)
         }
     }
 

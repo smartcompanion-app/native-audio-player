@@ -268,6 +268,49 @@ public class NativeAudioPlayerPluginTest {
         Assert.assertNull(plugin.mediaController);
     }
 
+    @Test
+    public void testAnOutputChangePausesPlayback() {
+        MediaController controller = mock(MediaController.class);
+        when(controller.isPlaying()).thenReturn(true);
+        plugin.mediaController = controller;
+        plugin.notifiedAudioOutput = "speaker";
+        plugin.requestedChannel = "earpiece";
+
+        plugin.notifyAudioOutputChange();
+
+        // audio routed to the earpiece must not carry on through another output
+        verify(controller).pause();
+        Assert.assertEquals("earpiece", plugin.notifiedAudioOutput);
+    }
+
+    @Test
+    public void testAnOutputChangeDoesNotPauseAnAlreadyPausedPlayer() {
+        MediaController controller = mock(MediaController.class);
+        when(controller.isPlaying()).thenReturn(false);
+        plugin.mediaController = controller;
+        plugin.notifiedAudioOutput = "speaker";
+        plugin.requestedChannel = "earpiece";
+
+        plugin.notifyAudioOutputChange();
+
+        // pausing a paused player would emit a second, redundant paused event
+        verify(controller, never()).pause();
+    }
+
+    @Test
+    public void testAnUnchangedOutputLeavesPlaybackAlone() {
+        MediaController controller = mock(MediaController.class);
+        when(controller.isPlaying()).thenReturn(true);
+        plugin.mediaController = controller;
+        plugin.notifiedAudioOutput = "speaker";
+        plugin.requestedChannel = "speaker";
+
+        plugin.notifyAudioOutputChange();
+
+        // a device change that leaves the output as it was is not an output change
+        verify(controller, never()).pause();
+    }
+
     // Java assertions are disabled at runtime on Android, so the assert this
     // replaces never guarded anything.
 

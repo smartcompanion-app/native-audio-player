@@ -105,6 +105,9 @@ const { output } = await NativeAudioPlayer.getAudioOutput();
 // The event covers the routes you do not control either — headphones being
 // unplugged, a bluetooth device connecting. It only fires on changes, so query
 // getAudioOutput() once for the initial value.
+//
+// Playback pauses on every one of these changes, so audio meant for the earpiece
+// cannot carry on out loud somewhere else. Call play() here to keep going.
 const outputListener = await NativeAudioPlayer.addListener('audioOutputChange', ({ output }) => {
   console.log(`audio now plays through the ${output}`);
 });
@@ -206,6 +209,9 @@ setEarpiece() => Promise<void>
 Set the audio output to the earpiece. Has no audible effect while an external device
 such as headphones or a bluetooth speaker is connected.
 
+Playback pauses, as it does on every audio output change — see
+{@link NativeAudioPlayerPlugin.addListener} for `audioOutputChange`.
+
 --------------------
 
 
@@ -217,6 +223,9 @@ setSpeaker() => Promise<void>
 
 Set the audio output to the speaker. Has no audible effect while an external device
 such as headphones or a bluetooth speaker is connected.
+
+Playback pauses, as it does on every audio output change — see
+{@link NativeAudioPlayerPlugin.addListener} for `audioOutputChange`.
 
 --------------------
 
@@ -397,6 +406,11 @@ Add an event listener for audio output changes. Fires both when the output is ch
 through {@link NativeAudioPlayerPlugin.setEarpiece} or {@link NativeAudioPlayerPlugin.setSpeaker}
 and when the route changes on its own, e.g. when headphones are unplugged or a bluetooth
 device connects.
+
+Playback pauses on every one of these changes, so that audio meant for the earpiece cannot
+carry on out loud through a different output. A `audioPlayerChange` event with the `paused`
+state is emitted alongside this one whenever something was playing. Resuming is left to the
+app: call {@link NativeAudioPlayerPlugin.play} from this listener to play on regardless.
 
 | Param           | Type                                                                                 |
 | --------------- | ------------------------------------------------------------------------------------ |

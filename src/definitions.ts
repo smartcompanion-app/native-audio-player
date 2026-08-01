@@ -4,6 +4,9 @@ export interface NativeAudioPlayerPlugin {
   /**
    * Set the audio output to the earpiece. Has no audible effect while an external device
    * such as headphones or a bluetooth speaker is connected.
+   *
+   * Playback pauses, as it does on every audio output change — see
+   * {@link NativeAudioPlayerPlugin.addListener} for `audioOutputChange`.
    * @returns {Promise<void>} A promise that resolves when the audio output is set to the earpiece.
    */
   setEarpiece(): Promise<void>;
@@ -11,6 +14,9 @@ export interface NativeAudioPlayerPlugin {
   /**
    * Set the audio output to the speaker. Has no audible effect while an external device
    * such as headphones or a bluetooth speaker is connected.
+   *
+   * Playback pauses, as it does on every audio output change — see
+   * {@link NativeAudioPlayerPlugin.addListener} for `audioOutputChange`.
    * @returns {Promise<void>} A promise that resolves when the audio output is set to the speaker.
    */
   setSpeaker(): Promise<void>;
@@ -99,6 +105,11 @@ export interface NativeAudioPlayerPlugin {
    * through {@link NativeAudioPlayerPlugin.setEarpiece} or {@link NativeAudioPlayerPlugin.setSpeaker}
    * and when the route changes on its own, e.g. when headphones are unplugged or a bluetooth
    * device connects.
+   *
+   * Playback pauses on every one of these changes, so that audio meant for the earpiece cannot
+   * carry on out loud through a different output. A `audioPlayerChange` event with the `paused`
+   * state is emitted alongside this one whenever something was playing. Resuming is left to the
+   * app: call {@link NativeAudioPlayerPlugin.play} from this listener to play on regardless.
    * @returns {Promise<PluginListenerHandle>} The listener can be removed using the returned handle.
    */
   addListener(

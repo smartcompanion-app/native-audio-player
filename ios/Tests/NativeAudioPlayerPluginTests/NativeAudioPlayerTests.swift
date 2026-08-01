@@ -150,4 +150,36 @@ class NativeAudioPlayerTests: XCTestCase {
         XCTAssertEqual(NativeAudioPlayer.audioOutput(for: .headphones), "external")
         XCTAssertEqual(NativeAudioPlayer.audioOutput(for: nil), "external")
     }
+
+    func testAnOutputChangeIsReportedOnce() {
+        let player = makePlayer()
+        var reported: [(output: String, didPause: Bool)] = []
+        player.onAudioOutputChanged = { output, didPause in
+            reported.append((output, didPause))
+        }
+
+        // a route the host machine does not have, so the first call is always a change
+        player.notifiedAudioOutput = "earpiece"
+        player.notifyAudioOutputChange()
+        player.notifyAudioOutputChange()
+
+        XCTAssertEqual(reported.count, 1)
+        XCTAssertNotEqual(reported.first?.output, "earpiece")
+
+        // nothing was loaded, so nothing was playing and no pause is announced
+        XCTAssertEqual(reported.first?.didPause, false)
+    }
+
+    func testAnUnchangedOutputIsNotReported() {
+        let player = makePlayer()
+        var reported = 0
+        player.onAudioOutputChanged = { _, _ in
+            reported += 1
+        }
+
+        player.notifiedAudioOutput = player.audioOutput
+        player.notifyAudioOutputChange()
+
+        XCTAssertEqual(reported, 0)
+    }
 }

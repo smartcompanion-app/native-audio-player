@@ -89,6 +89,11 @@ public class AudioPlayerService extends MediaSessionService {
         return new ExoPlayer.Builder(this)
             //.setPauseAtEndOfMediaItems(true)
             .setAudioAttributes(getAudioAttributes(channel), false)
+            // pause when the audio would fall back to the speaker on its own, e.g. when
+            // headphones are unplugged. The plugin pauses on every output change anyway,
+            // but this happens inside the audio framework and so beats the device callback
+            // to it -- without it the first moment of playback escapes through the speaker.
+            .setHandleAudioBecomingNoisy(true)
             .build();
     }
 

@@ -7,6 +7,7 @@ import android.media.AudioDeviceCallback;
 import android.media.AudioDeviceInfo;
 import android.media.AudioManager;
 import android.os.Bundle;
+import android.os.Handler;
 import android.util.Log;
 import androidx.annotation.Nullable;
 import androidx.media3.common.MediaItem;
@@ -361,6 +362,15 @@ public class NativeAudioPlayerPlugin extends Plugin {
 
             if (!output.equals(notifiedAudioOutput)) {
                 notifiedAudioOutput = output;
+
+                // audio that was going to the earpiece must not carry on out loud once the
+                // route changed, so playback stops on every output change and the app decides
+                // whether to resume. Pausing emits the paused event through onIsPlayingChanged,
+                // and only fires when the player was actually playing.
+                if (mediaController != null && mediaController.isPlaying()) {
+                    mediaController.pause();
+                }
+
                 notifyListeners("audioOutputChange", nativeAudioPlayer.prepareOutputEvent(output));
             }
         } catch (Exception e) {
@@ -427,7 +437,12 @@ public class NativeAudioPlayerPlugin extends Plugin {
             // that are already connected and that is not a change worth reporting
             notifiedAudioOutput = resolveAudioOutput();
             audioManager.unregisterAudioDeviceCallback(audioDeviceCallback); // prevent double add
-            audioManager.registerAudioDeviceCallback(audioDeviceCallback, null);
+
+            // deliver on the looper the controller was built on rather than the main thread:
+            // the callback pauses playback, and a MediaController throws when it is touched
+            // from anywhere else
+            Handler handler = mediaController != null ? new Handler(mediaController.getApplicationLooper()) : null;
+            audioManager.registerAudioDeviceCallback(audioDeviceCallback, handler);
         }
     }
 
