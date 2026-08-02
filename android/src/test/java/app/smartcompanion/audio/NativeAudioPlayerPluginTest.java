@@ -9,6 +9,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.Player;
 import androidx.media3.session.MediaController;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.MessageHandler;
@@ -239,6 +240,37 @@ public class NativeAudioPlayerPluginTest {
 
         verify(controller).seekTo(1, 0);
         Assert.assertEquals("item2", assertResolved(call).getString("id"));
+    }
+
+    // An item that plays out parks on its last frame, where play() only falls off the
+    // end again. Only the end-of-item reason may rewind: the others are pauses somebody
+    // asked for, and moving the position out from under them loses the listener's place.
+
+    @Test
+    public void testAnItemThatPlaysOutIsRewound() {
+        MediaController controller = mock(MediaController.class);
+        plugin.mediaController = controller;
+
+        plugin.playerListener.onPlayWhenReadyChanged(false, Player.PLAY_WHEN_READY_CHANGE_REASON_END_OF_MEDIA_ITEM);
+
+        verify(controller).seekTo(0);
+    }
+
+    @Test
+    public void testAPauseTheUserAskedForKeepsItsPosition() {
+        MediaController controller = mock(MediaController.class);
+        plugin.mediaController = controller;
+
+        plugin.playerListener.onPlayWhenReadyChanged(false, Player.PLAY_WHEN_READY_CHANGE_REASON_USER_REQUEST);
+
+        verify(controller, never()).seekTo(0);
+    }
+
+    @Test
+    public void testAnItemThatPlaysOutWithoutAControllerIsIgnored() {
+        plugin.mediaController = null;
+
+        plugin.playerListener.onPlayWhenReadyChanged(false, Player.PLAY_WHEN_READY_CHANGE_REASON_END_OF_MEDIA_ITEM);
     }
 
     // A second start() used to leave the previous listener attached, so every

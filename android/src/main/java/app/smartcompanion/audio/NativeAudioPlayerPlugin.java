@@ -89,6 +89,29 @@ public class NativeAudioPlayerPlugin extends Plugin {
             }
         }
 
+        /**
+         * Rewinds an item that has just played out, so it is ready to start over.
+         *
+         * The player parks at the end of the item rather than rolling into the next one,
+         * see AudioPlayerService#getPlayer. Left there it sits on the last frame, where
+         * play() only falls off the end again -- and END_OF_MEDIA_ITEM is the one reason
+         * that tells this apart from a pause the user or the audio framework asked for.
+         */
+        @Override
+        public void onPlayWhenReadyChanged(boolean playWhenReady, int reason) {
+            MediaController controller = mediaController;
+
+            if (controller == null || reason != Player.PLAY_WHEN_READY_CHANGE_REASON_END_OF_MEDIA_ITEM) {
+                return;
+            }
+
+            try {
+                controller.seekTo(0);
+            } catch (Exception e) {
+                Log.e("NATIVE_AUDIO_PLAYER", "Could not rewind the completed item: " + e.getMessage());
+            }
+        }
+
         @Override
         public void onIsPlayingChanged(boolean isPlaying) {
             try {

@@ -130,6 +130,10 @@ document.querySelector('#select').addEventListener('click', async (e) => {
       await updatePosition();
     } else if (data.state == 'paused') {
       document.querySelector('#play-pause').innerHTML = 'PLAY';
+      // the poller only runs while playing, so the last position it read stands until
+      // something asks again -- and a pause does not always leave the player where it
+      // was: an item that plays out rewinds itself to the start
+      await updatePosition();
     } else if (data.state == 'skip') {
       document.querySelector('#play-pause').innerHTML = 'PLAY';
       await updatePosition();
