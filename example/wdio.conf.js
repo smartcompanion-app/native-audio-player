@@ -48,6 +48,12 @@ export const config = {
       // Appium fetches a chromedriver matching the device's webview when the
       // test attaches to it. CI caches the appium home directory so that this
       // usually resolves without hitting the network.
+      // Which device to drive when more than one is attached. Appium otherwise takes
+      // whichever adb lists first, and a phone plugged in for manual testing usually
+      // wins -- physical devices also refuse the helper apk the driver installs
+      // (Play Protect rejects it), so the run stalls until the session times out.
+      // CI attaches a single emulator and leaves this unset.
+      ...(process.env.APPIUM_UDID ? { 'appium:udid': process.env.APPIUM_UDID } : {}),
       'appium:chromedriverAutodownload': true,
       // Without this the chromedriver output is lost, which is exactly what is
       // needed when attaching to the webview fails.
