@@ -139,6 +139,21 @@ class NativeAudioPlayerTests: XCTestCase {
         XCTAssertNil(MPNowPlayingInfoCenter.default().nowPlayingInfo)
     }
 
+    func testUpdateLockScreenIsANoOpWithoutNowPlayingInfo() {
+        MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
+
+        // reached through pause() and seekTo() before anything ever loaded, where writing
+        // the two fields on their own would put a player on the lock screen that has no
+        // title, no artwork and nothing to play
+        makePlayer().updateLockScreen()
+
+        XCTAssertNil(MPNowPlayingInfoCenter.default().nowPlayingInfo)
+    }
+
+    func testPlaybackRateIsZeroWithoutLoadedAudio() {
+        XCTAssertEqual(makePlayer().playbackRate, 0.0)
+    }
+
     func testAudioOutputMapsTheBuiltInPorts() {
         XCTAssertEqual(NativeAudioPlayer.audioOutput(for: .builtInReceiver), "earpiece")
         XCTAssertEqual(NativeAudioPlayer.audioOutput(for: .builtInSpeaker), "speaker")
@@ -151,35 +166,16 @@ class NativeAudioPlayerTests: XCTestCase {
         XCTAssertEqual(NativeAudioPlayer.audioOutput(for: nil), "external")
     }
 
-    func testAnOutputChangeIsReportedOnce() {
+    func testEveryOutputChangeIsReported() {
         let player = makePlayer()
-        var reported: [(output: String, didPause: Bool)] = []
-        player.onAudioOutputChanged = { output, didPause in
-            reported.append((output, didPause))
-        }
+        var reported: [String] = []
+        player.onAudioOutputChanged = { reported.append($0) }
 
-        // a route the host machine does not have, so the first call is always a change
-        player.notifiedAudioOutput = "earpiece"
+        // an output that stays the same is still a different device -- swapping one bluetooth
+        // device for another has to reach the app, see the behaviour overview in the README
         player.notifyAudioOutputChange()
         player.notifyAudioOutputChange()
 
-        XCTAssertEqual(reported.count, 1)
-        XCTAssertNotEqual(reported.first?.output, "earpiece")
-
-        // nothing was loaded, so nothing was playing and no pause is announced
-        XCTAssertEqual(reported.first?.didPause, false)
-    }
-
-    func testAnUnchangedOutputIsNotReported() {
-        let player = makePlayer()
-        var reported = 0
-        player.onAudioOutputChanged = { _, _ in
-            reported += 1
-        }
-
-        player.notifiedAudioOutput = player.audioOutput
-        player.notifyAudioOutputChange()
-
-        XCTAssertEqual(reported, 0)
+        XCTAssertEqual(reported.count, 2)
     }
 }

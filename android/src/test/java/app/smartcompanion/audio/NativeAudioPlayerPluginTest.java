@@ -49,6 +49,31 @@ public class NativeAudioPlayerPluginTest {
         return new PluginCall(messageHandler, "NativeAudioPlayer", "callback-id", "method", data);
     }
 
+    /**
+     * Captures the events the plugin emits, the same way the iOS tests do. Overriding
+     * notifyListeners keeps these free of a Bridge, which cannot be built headless.
+     */
+    private static class RecordingPlugin extends NativeAudioPlayerPlugin {
+
+        final java.util.List<JSObject> events = new java.util.ArrayList<>();
+
+        @Override
+        public void notifyListeners(String eventName, JSObject data) {
+            events.add(data);
+        }
+    }
+
+    /**
+     * A controller sitting on one of three items, which next() and previous() need in order to
+     * work out where wrapping around lands.
+     */
+    private MediaController playlistOfThreeAt(int index, String currentId) {
+        MediaController controller = controllerWithCurrentItem(currentId);
+        when(controller.getMediaItemCount()).thenReturn(3);
+        when(controller.getCurrentMediaItemIndex()).thenReturn(index);
+        return controller;
+    }
+
     private MediaController controllerWithCurrentItem(String id) {
         MediaController controller = mock(MediaController.class);
         when(controller.getCurrentMediaItem()).thenReturn(new MediaItem.Builder().setMediaId(id).build());
@@ -102,21 +127,57 @@ public class NativeAudioPlayerPluginTest {
         Assert.assertEquals(0L, assertResolved(call).getLong("value"));
     }
 
+    /**
+     * play() is the one that rejects: resolving used to promise playback that could not
+     * happen. See play() in definitions.ts.
+     */
     @Test
-    public void testPlaybackMethodsResolveWithoutAController() throws Exception {
-        PluginCall playCall = call();
-        plugin.play(playCall);
-        assertResolved(playCall);
+    public void testPlayWithoutAControllerRejects() {
+        PluginCall call = call();
 
-        setUp();
+        plugin.play(call);
+
+        assertRejected(call);
+    }
+
+    @Test
+    public void testPauseAndSeekRejectWithoutAController() {
         PluginCall pauseCall = call();
         plugin.pause(pauseCall);
-        assertResolved(pauseCall);
+        assertRejected(pauseCall);
 
         setUp();
         PluginCall seekCall = call();
         plugin.seekTo(seekCall);
-        assertResolved(seekCall);
+        assertRejected(seekCall);
+
+        setUp();
+        PluginCall earpieceCall = call();
+        plugin.setEarpiece(earpieceCall);
+        assertRejected(earpieceCall);
+
+        setUp();
+        PluginCall speakerCall = call();
+        plugin.setSpeaker(speakerCall);
+        assertRejected(speakerCall);
+    }
+
+    @Test
+    public void testSelectRejectsAnUnknownId() {
+        MediaController controller = controllerWithCurrentItem("item1");
+        when(controller.getMediaItemCount()).thenReturn(1);
+        when(controller.getMediaItemAt(0)).thenReturn(new MediaItem.Builder().setMediaId("item1").build());
+        plugin.mediaController = controller;
+
+        JSObject data = new JSObject();
+        data.put("id", "does-not-exist");
+        PluginCall call = call(data);
+
+        plugin.select(call);
+
+        // it used to resolve with the item the caller already had
+        assertRejected(call);
+        verify(controller, never()).seekTo(org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.anyLong());
     }
 
     /**
@@ -206,7 +267,7 @@ public class NativeAudioPlayerPluginTest {
 
     @Test
     public void testNextResolvesWithTheCurrentItemId() throws Exception {
-        plugin.mediaController = controllerWithCurrentItem("item2");
+        plugin.mediaController = playlistOfThreeAt(1, "item2");
         PluginCall call = call();
 
         plugin.next(call);
@@ -216,7 +277,7 @@ public class NativeAudioPlayerPluginTest {
 
     @Test
     public void testPreviousResolvesWithTheCurrentItemId() throws Exception {
-        plugin.mediaController = controllerWithCurrentItem("item1");
+        plugin.mediaController = playlistOfThreeAt(1, "item1");
         PluginCall call = call();
 
         plugin.previous(call);
@@ -273,6 +334,47 @@ public class NativeAudioPlayerPluginTest {
         plugin.playerListener.onPlayWhenReadyChanged(false, Player.PLAY_WHEN_READY_CHANGE_REASON_END_OF_MEDIA_ITEM);
     }
 
+    // See AudioPlayerState in definitions.ts: an item that plays out reports completed, and
+    // reports it alone. The player pauses itself at the boundary, and announcing that pause
+    // as well would describe one transition twice.
+
+    @Test
+    public void testAnItemThatPlaysOutReportsCompleted() throws Exception {
+        RecordingPlugin recording = new RecordingPlugin();
+        recording.mediaController = controllerWithCurrentItem("item1");
+
+        recording.playerListener.onPlayWhenReadyChanged(false, Player.PLAY_WHEN_READY_CHANGE_REASON_END_OF_MEDIA_ITEM);
+
+        Assert.assertEquals(1, recording.events.size());
+        Assert.assertEquals("completed", recording.events.get(0).getString("state"));
+        Assert.assertEquals("item1", recording.events.get(0).getString("id"));
+    }
+
+    @Test
+    public void testAnItemThatPlaysOutDoesNotAlsoReportPaused() {
+        RecordingPlugin recording = new RecordingPlugin();
+        recording.mediaController = controllerWithCurrentItem("item1");
+
+        recording.playerListener.onPlayWhenReadyChanged(false, Player.PLAY_WHEN_READY_CHANGE_REASON_END_OF_MEDIA_ITEM);
+        recording.events.clear();
+
+        // the player raises this for the same stop, right after the one above
+        recording.playerListener.onIsPlayingChanged(false);
+
+        Assert.assertTrue("completed was followed by a paused for the same stop", recording.events.isEmpty());
+    }
+
+    @Test
+    public void testAPauseTheUserAskedForIsStillReported() {
+        RecordingPlugin recording = new RecordingPlugin();
+        recording.mediaController = controllerWithCurrentItem("item1");
+
+        recording.playerListener.onIsPlayingChanged(false);
+
+        Assert.assertEquals(1, recording.events.size());
+        Assert.assertEquals("paused", recording.events.get(0).getString("state"));
+    }
+
     // A second start() used to leave the previous listener attached, so every
     // audioPlayerChange event was delivered twice.
 
@@ -316,31 +418,35 @@ public class NativeAudioPlayerPluginTest {
     }
 
     @Test
-    public void testAnOutputChangeDoesNotPauseAnAlreadyPausedPlayer() {
-        MediaController controller = mock(MediaController.class);
+    public void testAnOutputChangeReportsThePauseEvenWhenNothingWasPlaying() {
+        RecordingPlugin recording = new RecordingPlugin();
+        MediaController controller = controllerWithCurrentItem("item1");
         when(controller.isPlaying()).thenReturn(false);
-        plugin.mediaController = controller;
-        plugin.notifiedAudioOutput = "speaker";
-        plugin.requestedChannel = "earpiece";
+        recording.mediaController = controller;
+        recording.requestedChannel = "earpiece";
 
-        plugin.notifyAudioOutputChange();
+        recording.notifyAudioOutputChange();
 
-        // pausing a paused player would emit a second, redundant paused event
-        verify(controller, never()).pause();
+        // the app is told the player is stopped whether or not this stopped it, so a listener
+        // that mirrors the state does not have to guess -- see the README behaviour overview
+        Assert.assertEquals("paused", recording.events.get(0).getString("state"));
+        Assert.assertEquals(2, recording.events.size());
     }
 
     @Test
-    public void testAnUnchangedOutputLeavesPlaybackAlone() {
-        MediaController controller = mock(MediaController.class);
-        when(controller.isPlaying()).thenReturn(true);
-        plugin.mediaController = controller;
-        plugin.notifiedAudioOutput = "speaker";
-        plugin.requestedChannel = "speaker";
+    public void testAnOutputThatStaysTheSameIsStillReported() {
+        RecordingPlugin recording = new RecordingPlugin();
+        MediaController controller = controllerWithCurrentItem("item1");
+        recording.mediaController = controller;
+        recording.notifiedAudioOutput = "speaker";
+        recording.requestedChannel = "speaker";
 
-        plugin.notifyAudioOutputChange();
+        recording.notifyAudioOutputChange();
 
-        // a device change that leaves the output as it was is not an output change
-        verify(controller, never()).pause();
+        // swapping one external device for another leaves the answer at external, and the app
+        // still has something new to say about it
+        verify(controller).pause();
+        Assert.assertEquals(2, recording.events.size());
     }
 
     // Java assertions are disabled at runtime on Android, so the assert this

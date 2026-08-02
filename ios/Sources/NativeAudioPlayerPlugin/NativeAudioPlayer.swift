@@ -24,6 +24,15 @@ import UIKit
     var position: Int {
         Int(audioPlayer?.currentTime ?? 0)
     }
+    /// What the lock screen is told about the speed of playback.
+    ///
+    /// It is not decoration: the system runs its own clock from the elapsed time it was last
+    /// given, advancing it at this rate, and draws the transport button from it -- a non-zero
+    /// rate means playing, so it offers pause. A rate left at 1.0 on a paused player therefore
+    /// keeps offering pause, and the play command can never be reached from the lock screen.
+    var playbackRate: Double {
+        audioPlayer?.isPlaying == true ? 1.0 : 0.0
+    }
     var title: String {
         currentItem?.title ?? ""
     }
@@ -32,9 +41,7 @@ import UIKit
     }
     var onCompleted: ((_ id: String) -> Void)?
 
-    /// `didPause` reports whether the output change stopped playback, so the plugin only
-    /// announces a pause that actually happened.
-    var onAudioOutputChanged: ((_ output: String, _ didPause: Bool) -> Void)?
+    var onAudioOutputChanged: ((_ output: String) -> Void)?
 
     /// The output the session is routed to right now, which is not necessarily the one that
     /// was requested: the earpiece/speaker override is skipped while an external device is
@@ -42,11 +49,6 @@ import UIKit
     var audioOutput: String {
         NativeAudioPlayer.audioOutput(for: AVAudioSession.sharedInstance().currentRoute.outputs.first?.portType)
     }
-
-    /// The last output handed to `onAudioOutputChanged`, so route changes that leave the
-    /// output as it was -- switching between two bluetooth devices, say -- stay silent.
-    /// Not private so the tests can seed a route the host machine does not have.
-    var notifiedAudioOutput: String?
 
     static func audioOutput(for portType: AVAudioSession.Port?) -> String {
         switch portType {
@@ -85,8 +87,6 @@ import UIKit
     /// Starts reporting output changes, both the ones this plugin causes and the ones the
     /// user causes by plugging in headphones or connecting a bluetooth device.
     func observeAudioOutput() {
-        notifiedAudioOutput = audioOutput
-
         NotificationCenter.default.removeObserver(self, name: AVAudioSession.routeChangeNotification, object: nil)
         NotificationCenter.default.addObserver(
             self,
@@ -97,26 +97,32 @@ import UIKit
     }
 
     @objc private func handleRouteChange(_ notification: Notification) {
+        // Only a device the user connected or disconnected is an output change. load() sets the
+        // category and the port override, and both raise this notification as well -- acting on
+        // those would have start(), next() and select() pause the playback they just prepared.
+        let reason = notification.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt
+
+        guard reason == AVAudioSession.RouteChangeReason.newDeviceAvailable.rawValue
+            || reason == AVAudioSession.RouteChangeReason.oldDeviceUnavailable.rawValue else {
+            return
+        }
+
         notifyAudioOutputChange()
     }
 
+    /// Reports the output the audio is on now, and stops the playback that was going somewhere
+    /// else.
+    ///
+    /// Every device change is reported, including one that leaves the answer as it was --
+    /// swapping one bluetooth device for another is still a different device, and an app that
+    /// names the output has something new to say about it.
     func notifyAudioOutputChange() {
-        let output = audioOutput
+        // audio that was going to the earpiece must not carry on out loud once the route
+        // changed, so playback stops on every output change and the app decides whether to
+        // resume
+        pause()
 
-        if output != notifiedAudioOutput {
-            notifiedAudioOutput = output
-
-            // audio that was going to the earpiece must not carry on out loud once the route
-            // changed, so playback stops on every output change and the app decides whether to
-            // resume. setEarpiece/setSpeaker have already paused by the time they get here, so
-            // this only reports a pause for the route changes the plugin did not cause.
-            let didPause = audioPlayer?.isPlaying == true
-            if didPause {
-                pause()
-            }
-
-            onAudioOutputChanged?(output, didPause)
-        }
+        onAudioOutputChanged?(audioOutput)
     }
 
     // Capacitor's Filesystem API hands back fully qualified file:// URLs, but a
@@ -188,26 +194,26 @@ import UIKit
     func play() {
         if audioPlayer?.isPlaying == false {
             audioPlayer?.play()
-            initLockScreen(self.position)
+            updateLockScreen()
         }
     }
 
     func pause() {
         if audioPlayer?.isPlaying == true {
             audioPlayer?.pause()
+            updateLockScreen()
         }
     }
 
     func select(_ id: String) -> Bool {
-        guard !playerItems.isEmpty else {
+        // an id nothing carries leaves the playlist where it was, so the caller is told rather
+        // than handed back the item it already had -- see select() in definitions.ts
+        guard let index = playerItems.firstIndex(where: { $0.id == id }) else {
             return false
         }
 
         pause()
-
-        if let index = playerItems.firstIndex(where: { $0.id == id }) {
-            currentIndex = index
-        }
+        currentIndex = index
 
         return load()
     }
@@ -245,7 +251,11 @@ import UIKit
     }
 
     func seekTo(_ position: Int) {
-        audioPlayer?.currentTime = Double(position)
+        // a position outside the item is pulled to the nearest end of it. AVAudioPlayer does not
+        // keep one that is out of range, so without this a seek past the end silently lands
+        // wherever the player felt like rather than on the last moment of the audio.
+        audioPlayer?.currentTime = Double(min(max(0, position), duration))
+        updateLockScreen()
     }
 
     func setEarpiece() {
@@ -275,8 +285,12 @@ import UIKit
             MPMediaItemPropertyTitle: self.title,
             MPMediaItemPropertyArtist: self.subtitle,
             MPMediaItemPropertyPlaybackDuration: self.duration,
-            MPNowPlayingInfoPropertyPlaybackRate: 1.0,
-            MPNowPlayingInfoPropertyElapsedPlaybackTime: position
+            MPNowPlayingInfoPropertyPlaybackRate: playbackRate,
+            MPNowPlayingInfoPropertyElapsedPlaybackTime: position,
+            // what the system would otherwise have to guess at: audio with a timeline,
+            // rather than something it can only start and stop
+            MPNowPlayingInfoPropertyMediaType: MPNowPlayingInfoMediaType.audio.rawValue,
+            MPNowPlayingInfoPropertyIsLiveStream: false
         ]
 
         // decode up front: the artwork request handler is invoked by the system on
@@ -288,8 +302,29 @@ import UIKit
         MPNowPlayingInfoCenter.default().nowPlayingInfo = nowPlayingInfo
     }
 
+    /// Writes back the two fields the system cannot work out for itself, leaving the metadata
+    /// and the decoded artwork alone.
+    ///
+    /// Every transition that changes where or whether the audio is playing has to go through
+    /// here. The system only re-reads these when they are set, so anything that moves the
+    /// player without setting them leaves the lock screen running a clock of its own.
+    func updateLockScreen() {
+        guard var nowPlayingInfo = MPNowPlayingInfoCenter.default().nowPlayingInfo else {
+            return
+        }
+
+        nowPlayingInfo[MPNowPlayingInfoPropertyElapsedPlaybackTime] = position
+        nowPlayingInfo[MPNowPlayingInfoPropertyPlaybackRate] = playbackRate
+
+        MPNowPlayingInfoCenter.default().nowPlayingInfo = nowPlayingInfo
+    }
+
     public func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
         if flag {
+            // an item that played out has to be ready to play again, rather than parked at its
+            // end where play() would have nothing left to play -- see AudioPlayerState in
+            // definitions.ts. This also puts the lock screen back to the start of the item.
+            seekTo(0)
             onCompleted?(self.currentId)
         }
     }

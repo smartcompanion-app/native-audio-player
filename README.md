@@ -166,6 +166,35 @@ In folder `./example` a full usage example is available. This example is also us
 |---|---|
 | ![Demo App Screen](docs/demo-app-screen.png) | ![Native Audio Player (Android)](docs/native-audio-player.png) |
 
+## NativeAudioPlayer behaviour overview
+
+What each call promises, and what it reports while doing it. An event is emitted for a change
+that actually happened, so a call that changes nothing stays silent.
+
+| Action | Audio Player Event | Audio Output Event | Comment |
+|---|---|---|---|
+| `NativeAudioPlayer.start` | | | Prepares the playlist and selects the first item without playing it. Everything that moves the player — `play`, `pause`, `seekTo`, `next`, `previous`, `select`, `setEarpiece`, `setSpeaker` — is rejected until start is called. `stop` is allowed at any time, and `getPosition` and `getDuration` answer 0 |
+| `NativeAudioPlayer.play` | `playing` | |  |
+| `NativeAudioPlayer.pause` | `paused` | | Keeps the position, so a following `play` carries on from there |
+| `NativeAudioPlayer.seekTo` | `playing` | | The new position is selected and playing is started. A position outside the item is pulled to its nearest end |
+| `NativeAudioPlayer.next` | `skip` | | The next audio item is selected or the first if the current is the last item. The position is set to 0 and playing is not started. |
+| `NativeAudioPlayer.previous`| `skip` | | The previous audio item is selected or the last if the current is the first item. The position is set to 0 and playing is not started. |
+| `NativeAudioPlayer.select` | `skip` | | The item is select (reject if selected id is not existing).  The position is set to 0 and playing is not started. |
+| `NativeAudioPlayer.stop` | `paused` | | Clears the playlist. Start is required before the audio player is usable again. |
+| An item reaches its end | `completed` | | The player stops, the item stays selected and position is set to 0. (no separate pause event) |
+| `NativeAudioPlayer.setEarpiece` `NativeAudioPlayer.setSpeaker` | `paused` | `earpiece` `speaker` | Only overrides the built-in output, and does nothing audible while headphones or Bluetooth are connected — the output event then keeps reporting `external` |
+| The user plugs in headphones, connects Bluetooth, or unplugs them | `paused` | `external` `earpiece` `speaker` | Playback always stops, so audio meant for the earpiece cannot carry on out loud through a different output. |
+
+Notes on the events themselves:
+
+- The `paused` event on an output change is always emitted.
+- Only a change of the resolved output raises `audioOutputChange`. Swapping external devices for another also triggers an `external` event again.
+- The order of `audioPlayerChange` and `audioOutputChange` for the same output change is not
+  guaranteed to be the same on both platforms — treat them as two reports of one event, not a
+  sequence.
+- Every event reports playback moving, whoever moved it: a call on this plugin, a lock screen
+  or notification control, a headset button, or the audio running out.
+
 ## Other Audio Player Plugins
 
  - [@capacitor-community/native-audio](https://github.com/capacitor-community/native-audio)
@@ -266,6 +295,10 @@ play() => Promise<void>
 
 Play the currently selected audio item.
 
+Rejects when there is nothing to play, which is the case before {@link NativeAudioPlayerPlugin.start}
+and after {@link NativeAudioPlayerPlugin.stop} -- start the playlist again rather than
+calling this.
+
 --------------------
 
 
@@ -287,6 +320,9 @@ select(options: { id: string; }) => Promise<{ id: string; }>
 ```
 
 Select an audio item from the playlist by its id.
+
+Rejects when no item carries that id, rather than resolving with whatever was already
+selected -- a caller that asked for one item and silently got another has no way to tell.
 
 | Param         | Type                         |
 | ------------- | ---------------------------- |
@@ -330,6 +366,12 @@ seekTo(options: { position: number; }) => Promise<void>
 ```
 
 Seek to a specific position in the currently playing audio item.
+
+A position outside the item is pulled to the nearest end of it, so seeking past the end
+leaves the player on the last moment rather than somewhere it cannot play from. That is
+not the same as the item finishing: `completed` follows only once the audio actually runs
+out, which for a player that is already playing happens immediately, and for a paused one
+waits for the next {@link NativeAudioPlayerPlugin.play}.
 
 | Param         | Type                               |
 | ------------- | ---------------------------------- |
@@ -385,6 +427,13 @@ addListener(eventName: 'audioPlayerChange', listener: (result: AudioPlayerChange
 
 Add an event listener for player changes. The listener should accept an event object
 containing the current state and id of the audio item.
+
+The event reports every change, whichever caused it: a call on this plugin, a lock screen
+or notification control, a headset button, or the audio itself running out. An app that
+mirrors playback in its own UI should follow this event rather than assume its own calls
+are the only thing moving the player.
+
+See {@link <a href="#audioplayerstate">AudioPlayerState</a>} for what each state promises.
 
 | Param           | Type                                                                                 |
 | --------------- | ------------------------------------------------------------------------------------ |
@@ -491,6 +540,23 @@ neither value would describe what is actually heard.
 #### AudioPlayerState
 
 The playback state of the player.
+
+Exactly one event is emitted per transition, so a state never arrives paired with another
+describing the same change. Every state below behaves the same way on iOS and Android.
+
+- `playing` -- playback started or resumed.
+- `paused` -- playback stopped and the position was kept. Emitted for a
+  {@link NativeAudioPlayerPlugin.pause} call and for an output change, but never for an item
+  that reached its end: that is `completed`.
+- `skip` -- the selected item changed through {@link NativeAudioPlayerPlugin.next},
+  {@link NativeAudioPlayerPlugin.previous} or {@link NativeAudioPlayerPlugin.select}. The new
+  item is selected but not playing, so it takes a {@link NativeAudioPlayerPlugin.play} to
+  start it. The `id` is the item moved to.
+- `completed` -- the item played through to its end. The player stops there rather than
+  advancing, so nothing else starts on its own, and the item is rewound so a following
+  {@link NativeAudioPlayerPlugin.play} starts it again from the beginning. The `id` is the
+  item that finished, and it stays the selected one. Advancing is left to the app: call
+  {@link NativeAudioPlayerPlugin.next} from this listener to play through a playlist.
 
 <code>'playing' | 'paused' | 'skip' | 'completed'</code>
 

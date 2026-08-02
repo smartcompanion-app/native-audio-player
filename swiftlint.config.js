@@ -5,5 +5,12 @@ const ionicConfig = require('@ionic/swiftlint-config');
 // build output once they are present locally.
 module.exports = {
   ...ionicConfig,
-  excluded: [...ionicConfig.excluded, '${PWD}/example/node_modules', '${PWD}/example/ios/build'],
+  excluded: [
+    ...ionicConfig.excluded,
+    '${PWD}/example/node_modules',
+    '${PWD}/example/ios/build',
+    // where a device build puts its derived data -- this is the path example/ios/.gitignore
+    // knows about, and it holds both generated sources and the checked-out dependencies
+    '${PWD}/example/ios/App/build',
+  ],
 };

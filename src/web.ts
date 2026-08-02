@@ -60,6 +60,21 @@ export class NativeAudioPlayerWeb extends WebPlugin implements NativeAudioPlayer
     return document.querySelector('#web-audio') as HTMLAudioElement | null;
   }
 
+  /**
+   * Everything that moves the player needs one. Before start() and after stop() there is no
+   * element, and acting would only promise playback that cannot happen -- see the behaviour
+   * overview in the README.
+   */
+  protected requireAudioElement(): HTMLAudioElement {
+    const audioElement = this.getAudioElement();
+
+    if (!audioElement) {
+      throw new Error('could not play without a loaded audio item');
+    }
+
+    return audioElement;
+  }
+
   async setEarpiece(): Promise<void> {
     console.log('setEarpiece not implemented on the web');
   }
@@ -83,6 +98,7 @@ export class NativeAudioPlayerWeb extends WebPlugin implements NativeAudioPlayer
   async stop(): Promise<void> {
     const audioElement = this.getAudioElement();
     if (audioElement) {
+      this.notifyListeners('audioPlayerChange', { id: this.items[this.currentIndex].id, state: 'paused' });
       audioElement.pause();
       audioElement.remove();
     }
@@ -90,19 +106,17 @@ export class NativeAudioPlayerWeb extends WebPlugin implements NativeAudioPlayer
   }
 
   async play(): Promise<void> {
-    const audioElement = this.getAudioElement();
-    if (audioElement) {
-      await audioElement.play();
-      this.notifyListeners('audioPlayerChange', { id: this.items[this.currentIndex].id, state: 'playing' });
-    }
+    const audioElement = this.requireAudioElement();
+
+    await audioElement.play();
+    this.notifyListeners('audioPlayerChange', { id: this.items[this.currentIndex].id, state: 'playing' });
   }
 
   async pause(): Promise<void> {
-    const audioElement = this.getAudioElement();
-    if (audioElement) {
-      await audioElement.pause();
-      this.notifyListeners('audioPlayerChange', { id: this.items[this.currentIndex].id, state: 'paused' });
-    }
+    const audioElement = this.requireAudioElement();
+
+    await audioElement.pause();
+    this.notifyListeners('audioPlayerChange', { id: this.items[this.currentIndex].id, state: 'paused' });
   }
 
   async select(options: { id: string }): Promise<{ id: string }> {
@@ -143,9 +157,15 @@ export class NativeAudioPlayerWeb extends WebPlugin implements NativeAudioPlayer
   }
 
   async seekTo(options: { position: number }): Promise<void> {
-    const audioElement = this.getAudioElement();
-    if (audioElement) {
-      audioElement.currentTime = options.position;
+    const audioElement = this.requireAudioElement();
+
+    // the element clamps a position outside the media to its nearest end on its own
+    audioElement.currentTime = options.position;
+
+    // seeking resumes, so a listener who dragged the scrubber hears the audio carry on from
+    // where they dropped it. Already playing is not a change, and reports nothing.
+    if (audioElement.paused) {
+      await this.play();
     }
   }
 
@@ -172,6 +192,9 @@ export class NativeAudioPlayerWeb extends WebPlugin implements NativeAudioPlayer
         resolve({ id: item.id });
       });
       audio.addEventListener('ended', () => {
+        // an item that played out has to be ready to play again rather than sit on its end --
+        // see AudioPlayerState in definitions.ts
+        audio.currentTime = 0;
         this.notifyListeners('audioPlayerChange', { state: 'completed', id: item.id });
       });
       audio.setAttribute('id', 'web-audio');

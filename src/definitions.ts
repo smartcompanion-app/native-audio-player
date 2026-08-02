@@ -36,6 +36,10 @@ export interface NativeAudioPlayerPlugin {
 
   /**
    * Play the currently selected audio item.
+   *
+   * Rejects when there is nothing to play, which is the case before {@link NativeAudioPlayerPlugin.start}
+   * and after {@link NativeAudioPlayerPlugin.stop} -- start the playlist again rather than
+   * calling this.
    * @returns {Promise<void>} A promise that resolves when the audio starts playing.
    */
   play(): Promise<void>;
@@ -48,6 +52,9 @@ export interface NativeAudioPlayerPlugin {
 
   /**
    * Select an audio item from the playlist by its id.
+   *
+   * Rejects when no item carries that id, rather than resolving with whatever was already
+   * selected -- a caller that asked for one item and silently got another has no way to tell.
    * @param {string} options.id - The id of the audio item to select.
    * @returns {Promise<{id: string}>} The id of the selected audio item.
    */
@@ -67,6 +74,12 @@ export interface NativeAudioPlayerPlugin {
 
   /**
    * Seek to a specific position in the currently playing audio item.
+   *
+   * A position outside the item is pulled to the nearest end of it, so seeking past the end
+   * leaves the player on the last moment rather than somewhere it cannot play from. That is
+   * not the same as the item finishing: `completed` follows only once the audio actually runs
+   * out, which for a player that is already playing happens immediately, and for a paused one
+   * waits for the next {@link NativeAudioPlayerPlugin.play}.
    * @param {number} options.position - The position in seconds to seek to.
    * @returns {Promise<void>} A promise that resolves when the seek operation is complete.
    */
@@ -93,6 +106,13 @@ export interface NativeAudioPlayerPlugin {
   /**
    * Add an event listener for player changes. The listener should accept an event object
    * containing the current state and id of the audio item.
+   *
+   * The event reports every change, whichever caused it: a call on this plugin, a lock screen
+   * or notification control, a headset button, or the audio itself running out. An app that
+   * mirrors playback in its own UI should follow this event rather than assume its own calls
+   * are the only thing moving the player.
+   *
+   * See {@link AudioPlayerState} for what each state promises.
    * @returns {Promise<PluginListenerHandle>} The listener can be removed using the returned handle.
    */
   addListener(
@@ -120,6 +140,23 @@ export interface NativeAudioPlayerPlugin {
 
 /**
  * The playback state of the player.
+ *
+ * Exactly one event is emitted per transition, so a state never arrives paired with another
+ * describing the same change. Every state below behaves the same way on iOS and Android.
+ *
+ * - `playing` -- playback started or resumed.
+ * - `paused` -- playback stopped and the position was kept. Emitted for a
+ *   {@link NativeAudioPlayerPlugin.pause} call and for an output change, but never for an item
+ *   that reached its end: that is `completed`.
+ * - `skip` -- the selected item changed through {@link NativeAudioPlayerPlugin.next},
+ *   {@link NativeAudioPlayerPlugin.previous} or {@link NativeAudioPlayerPlugin.select}. The new
+ *   item is selected but not playing, so it takes a {@link NativeAudioPlayerPlugin.play} to
+ *   start it. The `id` is the item moved to.
+ * - `completed` -- the item played through to its end. The player stops there rather than
+ *   advancing, so nothing else starts on its own, and the item is rewound so a following
+ *   {@link NativeAudioPlayerPlugin.play} starts it again from the beginning. The `id` is the
+ *   item that finished, and it stays the selected one. Advancing is left to the app: call
+ *   {@link NativeAudioPlayerPlugin.next} from this listener to play through a playlist.
  */
 export type AudioPlayerState = 'playing' | 'paused' | 'skip' | 'completed';
 

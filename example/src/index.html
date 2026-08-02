@@ -29,6 +29,10 @@
         <span id="audio-output">-</span>
       </div>
 
+      <!-- Every audioPlayerChange state, in order, so the e2e tests can assert the event
+           contract itself rather than only the parts of it that show up in the controls. -->
+      <div id="events" hidden></div>
+
       <div id="player" class="controls">
         <button id="prev" disabled>PREV</button>
         <button id="play-pause" disabled>PLAY</button>

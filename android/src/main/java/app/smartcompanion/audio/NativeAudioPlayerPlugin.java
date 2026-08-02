@@ -41,6 +41,12 @@ import java.util.concurrent.Future;
 )
 public class NativeAudioPlayerPlugin extends Plugin {
 
+    /**
+     * Answered by everything that moves the player before start() and after stop(). Acting then
+     * would only promise playback that cannot happen -- see the behaviour overview in the README.
+     */
+    protected static final String NOT_STARTED = "could not play without a loaded audio item";
+
     protected NativeAudioPlayer nativeAudioPlayer = new NativeAudioPlayer();
 
     protected MediaController mediaController;
@@ -58,6 +64,12 @@ public class NativeAudioPlayerPlugin extends Plugin {
      * leave the resolved output as it was stay silent.
      */
     protected String notifiedAudioOutput;
+
+    /**
+     * Set while a stop is being announced by whoever caused it -- an item playing out, an output
+     * change, or stop() -- so the pause the player raises alongside it is not reported twice.
+     */
+    protected boolean pausedEventAlreadySent;
 
     protected Player.Listener playerListener = new Player.Listener() {
         @Override
@@ -90,12 +102,16 @@ public class NativeAudioPlayerPlugin extends Plugin {
         }
 
         /**
-         * Rewinds an item that has just played out, so it is ready to start over.
+         * Reports an item that has just played out, and rewinds it so it is ready to start over.
          *
          * The player parks at the end of the item rather than rolling into the next one,
          * see AudioPlayerService#getPlayer. Left there it sits on the last frame, where
          * play() only falls off the end again -- and END_OF_MEDIA_ITEM is the one reason
          * that tells this apart from a pause the user or the audio framework asked for.
+         *
+         * This is also where `completed` is announced. It used to come from STATE_ENDED, which
+         * is the state for a playlist that has run out: parking at every item boundary means
+         * the player never reaches it.
          */
         @Override
         public void onPlayWhenReadyChanged(boolean playWhenReady, int reason) {
@@ -105,15 +121,31 @@ public class NativeAudioPlayerPlugin extends Plugin {
                 return;
             }
 
+            // the pause that comes with this is the item ending rather than one anybody asked
+            // for, and a transition reports one state -- so the paused event that would
+            // otherwise follow is swallowed and `completed` stands on its own
+            pausedEventAlreadySent = true;
+
             try {
                 controller.seekTo(0);
+                notifyListeners(
+                    "audioPlayerChange",
+                    nativeAudioPlayer.preparePlayerEvent("completed", Objects.requireNonNull(controller.getCurrentMediaItem()))
+                );
             } catch (Exception e) {
-                Log.e("NATIVE_AUDIO_PLAYER", "Could not rewind the completed item: " + e.getMessage());
+                Log.e("NATIVE_AUDIO_PLAYER", "Could not trigger completed event: " + e.getMessage());
             }
         }
 
         @Override
         public void onIsPlayingChanged(boolean isPlaying) {
+            // the stop at an item boundary is reported as completed, by onPlayWhenReadyChanged
+            // just above -- which the player delivers before this one for the same update
+            if (!isPlaying && pausedEventAlreadySent) {
+                pausedEventAlreadySent = false;
+                return;
+            }
+
             try {
                 JSObject json = nativeAudioPlayer.preparePlayerEvent(
                     isPlaying ? "playing" : "paused",
@@ -122,23 +154,6 @@ public class NativeAudioPlayerPlugin extends Plugin {
                 notifyListeners("audioPlayerChange", json);
             } catch (Exception e) {
                 Log.e("NATIVE_AUDIO_PLAYER", "Could not trigger play/pause event: " + e.getMessage());
-            }
-        }
-
-        @Override
-        public void onPlaybackStateChanged(int playbackState) {
-            Player.Listener.super.onPlaybackStateChanged(playbackState);
-
-            if (playbackState == Player.STATE_ENDED) {
-                try {
-                    JSObject json = nativeAudioPlayer.preparePlayerEvent(
-                        "completed",
-                        Objects.requireNonNull(mediaController.getCurrentMediaItem())
-                    );
-                    notifyListeners("audioPlayerChange", json);
-                } catch (Exception e) {
-                    Log.e("NATIVE_AUDIO_PLAYER", "Could not trigger ended event: " + e.getMessage());
-                }
             }
         }
     };
@@ -223,6 +238,13 @@ public class NativeAudioPlayerPlugin extends Plugin {
 
         try {
             if (mediaController != null) {
+                // announced here rather than left to onIsPlayingChanged, which stays quiet when
+                // there was nothing playing to stop
+                pausedEventAlreadySent = true;
+                notifyListeners(
+                    "audioPlayerChange",
+                    nativeAudioPlayer.preparePlayerEvent("paused", Objects.requireNonNull(mediaController.getCurrentMediaItem()))
+                );
                 mediaController.pause();
                 mediaController.stop();
             }
@@ -254,14 +276,24 @@ public class NativeAudioPlayerPlugin extends Plugin {
 
     @PluginMethod
     public void play(PluginCall call) {
-        if (mediaController != null) {
-            mediaController.play();
+        // before start() and after stop() there is nothing loaded to play -- see play() in
+        // definitions.ts
+        if (mediaController == null) {
+            call.reject(NOT_STARTED);
+            return;
         }
+
+        mediaController.play();
         call.resolve();
     }
 
     @PluginMethod
     public void pause(PluginCall call) {
+        if (mediaController == null) {
+            call.reject(NOT_STARTED);
+            return;
+        }
+
         if (mediaController != null) {
             mediaController.pause();
         }
@@ -278,37 +310,62 @@ public class NativeAudioPlayerPlugin extends Plugin {
 
                 if (id.equals(mediaItem.mediaId)) {
                     mediaController.seekTo(i, 0);
-                    break;
+                    resolveWithCurrentId(call);
+                    return;
                 }
             }
         }
 
-        resolveWithCurrentId(call);
+        // an id nothing carries leaves the playlist where it was, so the caller is told rather
+        // than handed back the item it already had -- see select() in definitions.ts
+        call.reject("could not switch to item with given id");
     }
 
     @PluginMethod
     public void next(PluginCall call) {
-        if (mediaController != null) {
-            mediaController.seekToNextMediaItem();
-        }
-        resolveWithCurrentId(call);
+        seekToItem(call, 1);
     }
 
     @PluginMethod
     public void previous(PluginCall call) {
-        if (mediaController != null) {
-            mediaController.seekToPreviousMediaItem();
+        seekToItem(call, -1);
+    }
+
+    /**
+     * Steps through the playlist and wraps around its ends, so the last item is followed by the
+     * first and the first is preceded by the last.
+     *
+     * seekToNextMediaItem and seekToPreviousMediaItem stop at the ends unless the player repeats,
+     * which would also change what happens when an item plays out.
+     */
+    private void seekToItem(PluginCall call, int step) {
+        int count = mediaController == null ? 0 : mediaController.getMediaItemCount();
+
+        if (count == 0) {
+            call.reject("could not switch to the requested item");
+            return;
         }
+
+        int index = Math.floorMod(mediaController.getCurrentMediaItemIndex() + step, count);
+        mediaController.seekTo(index, 0);
         resolveWithCurrentId(call);
     }
 
     @PluginMethod
     public void seekTo(PluginCall call) {
-        int position = call.getInt("position", 0); // position in seconds
-        Log.i("NATIVE_AUDIO_PLAYER", " try to seek to position " + position);
-        if (mediaController != null) {
-            mediaController.seekTo(position * 1000L);
+        if (mediaController == null) {
+            call.reject(NOT_STARTED);
+            return;
         }
+
+        int position = call.getInt("position", 0); // position in seconds
+        mediaController.seekTo(position * 1000L);
+
+        // seeking resumes, so a listener who dragged the scrubber hears the audio carry on from
+        // where they dropped it. The playing event follows from the player itself, and only when
+        // this actually started something.
+        mediaController.play();
+
         call.resolve();
     }
 
@@ -341,12 +398,22 @@ public class NativeAudioPlayerPlugin extends Plugin {
 
     @PluginMethod
     public void setEarpiece(PluginCall call) {
+        if (mediaController == null) {
+            call.reject(NOT_STARTED);
+            return;
+        }
+
         setChannel(NativeAudioPlayer.OUTPUT_EARPIECE);
         call.resolve();
     }
 
     @PluginMethod
     public void setSpeaker(PluginCall call) {
+        if (mediaController == null) {
+            call.reject(NOT_STARTED);
+            return;
+        }
+
         setChannel(NativeAudioPlayer.OUTPUT_SPEAKER);
         call.resolve();
     }
@@ -379,23 +446,33 @@ public class NativeAudioPlayerPlugin extends Plugin {
         return nativeAudioPlayer.resolveAudioOutput(deviceTypes, requestedChannel);
     }
 
+    /**
+     * Reports the output the audio is on now, and stops the playback that was going somewhere
+     * else.
+     * <p>
+     * Every device change is reported, including one that leaves the answer as it was -- swapping
+     * one bluetooth device for another is still a different device, and an app that names the
+     * output has something new to say about it.
+     */
     protected void notifyAudioOutputChange() {
         try {
             String output = resolveAudioOutput();
+            notifiedAudioOutput = output;
 
-            if (!output.equals(notifiedAudioOutput)) {
-                notifiedAudioOutput = output;
-
-                // audio that was going to the earpiece must not carry on out loud once the
-                // route changed, so playback stops on every output change and the app decides
-                // whether to resume. Pausing emits the paused event through onIsPlayingChanged,
-                // and only fires when the player was actually playing.
-                if (mediaController != null && mediaController.isPlaying()) {
-                    mediaController.pause();
-                }
-
-                notifyListeners("audioOutputChange", nativeAudioPlayer.prepareOutputEvent(output));
+            // audio that was going to the earpiece must not carry on out loud once the route
+            // changed, so playback stops on every output change and the app decides whether to
+            // resume. The pause is announced here rather than left to onIsPlayingChanged, which
+            // stays quiet when there was nothing playing to stop.
+            if (mediaController != null) {
+                pausedEventAlreadySent = true;
+                mediaController.pause();
+                notifyListeners(
+                    "audioPlayerChange",
+                    nativeAudioPlayer.preparePlayerEvent("paused", Objects.requireNonNull(mediaController.getCurrentMediaItem()))
+                );
             }
+
+            notifyListeners("audioOutputChange", nativeAudioPlayer.prepareOutputEvent(output));
         } catch (Exception e) {
             Log.e("NATIVE_AUDIO_PLAYER", "Could not trigger audio output event: " + e.getMessage());
         }

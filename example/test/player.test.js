@@ -136,5 +136,23 @@ describe("Native Audio Player Test", () => {
       timeout: 10000,
       timeoutMsg: "The item that played out was not rewound to its start"
     });
+
+    // The contract, rather than the parts of it that happen to show in the controls: an item
+    // that plays out reports completed and nothing else. The rewind above is the plugin's
+    // doing either way, so without this the event could stop firing unnoticed.
+    const states = await browser.execute(() =>
+      document.querySelector("#events").innerHTML.trim().split(/\s+/)
+    );
+    expect(states.slice(states.lastIndexOf("playing"))).toEqual(["playing", "completed"]);
+
+    // and it is genuinely ready to go again, which is what the rewind is for
+    await playPauseButton.click();
+
+    await browser.waitUntil(async function () {
+      return (await playPauseButton.getText()) === "PAUSE"
+    }, {
+      timeout: 10000,
+      timeoutMsg: "The item that played out did not start again"
+    });
   });
 });

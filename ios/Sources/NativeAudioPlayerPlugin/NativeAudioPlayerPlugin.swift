@@ -29,6 +29,7 @@ public class NativeAudioPlayerPlugin: CAPPlugin, CAPBridgedPlugin {
     // MPRemoteCommand exposes no way to read back what is registered on it
     var pauseTarget: Any?
     var playTarget: Any?
+    var toggleTarget: Any?
     var nextTarget: Any?
     var previousTarget: Any?
     var seekTarget: Any?
@@ -45,14 +46,16 @@ public class NativeAudioPlayerPlugin: CAPPlugin, CAPBridgedPlugin {
         player.onCompleted = { [weak self] id in
             self?.onCompleted(id)
         }
-        player.onAudioOutputChanged = { [weak self] output, didPause in
-            self?.onAudioOutputChanged(output, didPause)
+        player.onAudioOutputChanged = { [weak self] output in
+            self?.onAudioOutputChanged(output)
         }
 
         if player.load() {
             player.observeAudioOutput()
 
             let commandCenter = MPRemoteCommandCenter.shared()
+
+            disableUnhandledCommands()
 
             setTarget(commandCenter.pauseCommand, &pauseTarget) { [weak self] _ in
                 self?.onPause()
@@ -61,6 +64,13 @@ public class NativeAudioPlayerPlugin: CAPPlugin, CAPBridgedPlugin {
 
             setTarget(commandCenter.playCommand, &playTarget) { [weak self] _ in
                 self?.onPlay()
+                return .success
+            }
+
+            // what a headset or bluetooth button sends: one command for both directions,
+            // rather than the separate play and pause the on-screen controls use
+            setTarget(commandCenter.togglePlayPauseCommand, &toggleTarget) { [weak self] _ in
+                self?.onTogglePlayPause()
                 return .success
             }
 
@@ -101,11 +111,31 @@ public class NativeAudioPlayerPlugin: CAPPlugin, CAPBridgedPlugin {
     }
 
     @objc func play(_ call: CAPPluginCall) {
+        guard requireLoadedItem(call) else {
+            return
+        }
+
         onPlay()
         call.resolve()
     }
 
+    /// Answers the call and reports false when nothing is loaded, which is the case before
+    /// start() and after stop(). Acting then would only report playback that cannot happen --
+    /// see the behaviour overview in the README.
+    private func requireLoadedItem(_ call: CAPPluginCall) -> Bool {
+        if player.audioPlayer == nil {
+            call.reject("could not play without a loaded audio item")
+            return false
+        }
+
+        return true
+    }
+
     @objc func pause(_ call: CAPPluginCall) {
+        guard requireLoadedItem(call) else {
+            return
+        }
+
         onPause()
         call.resolve()
     }
@@ -138,8 +168,21 @@ public class NativeAudioPlayerPlugin: CAPPlugin, CAPBridgedPlugin {
     }
 
     @objc func seekTo(_ call: CAPPluginCall) {
+        guard requireLoadedItem(call) else {
+            return
+        }
+
         let position = call.getInt("position") ?? 0
+        let wasPlaying = player.audioPlayer?.isPlaying == true
+
         player.seekTo(position)
+
+        // seeking resumes, so a listener dragged the scrubber and hears the audio carry on from
+        // where they dropped it. Already playing is not a change, and reports nothing.
+        if !wasPlaying {
+            onPlay()
+        }
+
         call.resolve()
     }
 
@@ -156,6 +199,10 @@ public class NativeAudioPlayerPlugin: CAPPlugin, CAPBridgedPlugin {
     }
 
     @objc func setEarpiece(_ call: CAPPluginCall) {
+        guard requireLoadedItem(call) else {
+            return
+        }
+
         // switching the output reloads the player, which leaves it paused
         self.notifyListeners("audioPlayerChange", data: ["id": player.currentId, "state": "paused"])
         player.setEarpiece()
@@ -163,9 +210,45 @@ public class NativeAudioPlayerPlugin: CAPPlugin, CAPBridgedPlugin {
     }
 
     @objc func setSpeaker(_ call: CAPPluginCall) {
+        guard requireLoadedItem(call) else {
+            return
+        }
+
         self.notifyListeners("audioPlayerChange", data: ["id": player.currentId, "state": "paused"])
         player.setSpeaker()
         call.resolve()
+    }
+
+    /// Turns off every command the plugin does not answer.
+    ///
+    /// MPRemoteCommandCenter is a process-wide singleton on which every command starts out
+    /// enabled, so leaving one alone is not the same as not offering it: it is a control the
+    /// system is willing to draw and nothing will ever respond to. The skip pair is the one
+    /// that costs. While those are enabled the transport shows the fifteen-second skip
+    /// buttons in place of the track buttons, which is why next and previous could be
+    /// registered and enabled and still never reach the app.
+    private func disableUnhandledCommands() {
+        let commandCenter = MPRemoteCommandCenter.shared()
+        let unhandled: [MPRemoteCommand] = [
+            commandCenter.skipForwardCommand,
+            commandCenter.skipBackwardCommand,
+            commandCenter.seekForwardCommand,
+            commandCenter.seekBackwardCommand,
+            commandCenter.stopCommand,
+            commandCenter.changePlaybackRateCommand,
+            commandCenter.changeRepeatModeCommand,
+            commandCenter.changeShuffleModeCommand,
+            commandCenter.likeCommand,
+            commandCenter.dislikeCommand,
+            commandCenter.bookmarkCommand,
+            commandCenter.ratingCommand,
+            commandCenter.enableLanguageOptionCommand,
+            commandCenter.disableLanguageOptionCommand
+        ]
+
+        for command in unhandled {
+            command.isEnabled = false
+        }
     }
 
     private func setTarget(
@@ -189,6 +272,7 @@ public class NativeAudioPlayerPlugin: CAPPlugin, CAPBridgedPlugin {
         let registered: [(MPRemoteCommand, Any?)] = [
             (commandCenter.pauseCommand, pauseTarget),
             (commandCenter.playCommand, playTarget),
+            (commandCenter.togglePlayPauseCommand, toggleTarget),
             (commandCenter.nextTrackCommand, nextTarget),
             (commandCenter.previousTrackCommand, previousTarget),
             (commandCenter.changePlaybackPositionCommand, seekTarget)
@@ -202,6 +286,7 @@ public class NativeAudioPlayerPlugin: CAPPlugin, CAPBridgedPlugin {
 
         pauseTarget = nil
         playTarget = nil
+        toggleTarget = nil
         nextTarget = nil
         previousTarget = nil
         seekTarget = nil
@@ -215,6 +300,16 @@ public class NativeAudioPlayerPlugin: CAPPlugin, CAPBridgedPlugin {
     private func onPause() {
         player.pause()
         self.notifyListeners("audioPlayerChange", data: ["id": player.currentId, "state": "paused"])
+    }
+
+    /// Answers the single button a headset offers, which has to work out for itself
+    /// which direction it means.
+    private func onTogglePlayPause() {
+        if player.audioPlayer?.isPlaying == true {
+            onPause()
+        } else {
+            onPlay()
+        }
     }
 
     private func onNext() -> Bool {
@@ -239,11 +334,8 @@ public class NativeAudioPlayerPlugin: CAPPlugin, CAPBridgedPlugin {
         self.notifyListeners("audioPlayerChange", data: ["id": id, "state": "completed"])
     }
 
-    private func onAudioOutputChanged(_ output: String, _ didPause: Bool) {
-        if didPause {
-            self.notifyListeners("audioPlayerChange", data: ["id": player.currentId, "state": "paused"])
-        }
-
+    private func onAudioOutputChanged(_ output: String) {
+        self.notifyListeners("audioPlayerChange", data: ["id": player.currentId, "state": "paused"])
         self.notifyListeners("audioOutputChange", data: ["output": output])
     }
 
