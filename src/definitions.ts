@@ -89,20 +89,29 @@ export interface NativeAudioPlayerPlugin {
    * not the same as the item finishing: `completed` follows only once the audio actually runs
    * out, which for a player that is already playing happens immediately, and for a paused one
    * waits for the next {@link NativeAudioPlayerPlugin.play}.
-   * @param {number} options.position - The position in seconds to seek to.
+   * @param {number} options.position - The position in seconds to seek to. Fractional seconds
+   * are kept, so a scrubber can hand back what {@link NativeAudioPlayerPlugin.getPosition}
+   * reported without rounding it first.
    * @returns {Promise<void>} A promise that resolves when the seek operation is complete.
    */
   seekTo(options: { position: number }): Promise<void>;
 
   /**
    * Get the duration of the current audio item in seconds.
-   * @returns {Promise<{value: number}>} The duration in seconds.
+   *
+   * Seconds are fractional on every platform. How finely they are resolved is the player's
+   * own business, so the same audio can report durations that differ by a few milliseconds
+   * across platforms -- compare with a tolerance rather than for equality.
+   * @returns {Promise<{value: number}>} The duration in fractional seconds.
    */
   getDuration(): Promise<{ value: number }>;
 
   /**
    * Get the current position of the audio item in seconds.
-   * @returns {Promise<{value: number}>} The current position in seconds.
+   *
+   * Seconds are fractional, which is what a progress bar needs to move smoothly. Callers that
+   * want whole seconds can round the value themselves.
+   * @returns {Promise<{value: number}>} The current position in fractional seconds.
    */
   getPosition(): Promise<{ value: number }>;
 

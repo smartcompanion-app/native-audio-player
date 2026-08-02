@@ -86,8 +86,7 @@ public class NativeAudioPlayerPlugin: CAPPlugin, CAPBridgedPlugin {
 
             setTarget(commandCenter.changePlaybackPositionCommand, &seekTarget) { [weak self] event in
                 if let changePlaybackPositionCommandEvent = event as? MPChangePlaybackPositionCommandEvent {
-                    let positionTime = changePlaybackPositionCommandEvent.positionTime
-                    self?.onSeekTo(Int(positionTime))
+                    self?.onSeekTo(changePlaybackPositionCommandEvent.positionTime)
                 }
                 return .success
             }
@@ -182,7 +181,7 @@ public class NativeAudioPlayerPlugin: CAPPlugin, CAPBridgedPlugin {
             return
         }
 
-        onSeekTo(call.getInt("position") ?? 0)
+        onSeekTo(call.getDouble("position") ?? 0)
 
         call.resolve()
     }
@@ -193,7 +192,7 @@ public class NativeAudioPlayerPlugin: CAPPlugin, CAPBridgedPlugin {
     /// Not private, and not inlined into either caller: the lock screen scrubber reaches this
     /// through a command handler rather than through seekTo above, and while it did the work
     /// itself it dropped the resume and the playing event that the contract promises.
-    func onSeekTo(_ position: Int) {
+    func onSeekTo(_ position: TimeInterval) {
         let wasPlaying = player.audioPlayer?.isPlaying == true
 
         player.seekTo(position)

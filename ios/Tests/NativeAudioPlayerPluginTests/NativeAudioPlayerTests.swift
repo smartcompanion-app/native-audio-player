@@ -99,11 +99,12 @@ class NativeAudioPlayerTests: PluginTestCase {
 
         XCTAssertTrue(player.load())
         player.seekTo(4)
-        XCTAssertEqual(player.position, 4)
+        // the player quantises a seek to a sample boundary, so positions never compare exactly
+        XCTAssertEqual(player.position, 4, accuracy: 0.05)
 
         player.audioPlayerDidFinishPlaying(try XCTUnwrap(player.audioPlayer), successfully: true)
 
-        XCTAssertEqual(player.position, 0)
+        XCTAssertEqual(player.position, 0, accuracy: 0.05)
         XCTAssertEqual(completed, ["1"])
         XCTAssertEqual(player.currentId, "1")
     }
@@ -120,7 +121,7 @@ class NativeAudioPlayerTests: PluginTestCase {
         player.audioPlayerDidFinishPlaying(try XCTUnwrap(player.audioPlayer), successfully: false)
 
         // nothing played out, so there is nothing to report and nothing to rewind
-        XCTAssertEqual(player.position, 4)
+        XCTAssertEqual(player.position, 4, accuracy: 0.05)
         XCTAssertTrue(completed.isEmpty)
     }
 

@@ -156,7 +156,8 @@ so keep the files flat in `Directory.Data` rather than in sub-folders.
 - `start()` only prepares the playlist — playback begins with `play()`.
 - The player does not advance on its own. When an item finishes you get a
   `completed` event and decide what happens next (see the example above).
-- Positions and durations are whole seconds.
+- Positions and durations are fractional seconds on every platform. How finely
+  they are resolved is up to the player, so compare them with a tolerance.
 - `setEarpiece()` / `setSpeaker()` only override the built-in output. When
   headphones or Bluetooth are connected, that route stays untouched.
 
@@ -397,6 +398,10 @@ getDuration() => Promise<{ value: number; }>
 
 Get the duration of the current audio item in seconds.
 
+Seconds are fractional on every platform. How finely they are resolved is the player's
+own business, so the same audio can report durations that differ by a few milliseconds
+across platforms -- compare with a tolerance rather than for equality.
+
 **Returns:** <code>Promise&lt;{ value: number; }&gt;</code>
 
 --------------------
@@ -409,6 +414,9 @@ getPosition() => Promise<{ value: number; }>
 ```
 
 Get the current position of the audio item in seconds.
+
+Seconds are fractional, which is what a progress bar needs to move smoothly. Callers that
+want whole seconds can round the value themselves.
 
 **Returns:** <code>Promise&lt;{ value: number; }&gt;</code>
 

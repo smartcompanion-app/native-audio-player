@@ -4,6 +4,8 @@ import {
   clearEvents,
   readEvents,
   readPosition,
+  readReportedSeconds,
+  sampleReportedPositions,
   seekToPercent,
   selectItem,
   waitForActiveItem,
@@ -148,6 +150,33 @@ describe("The audio player contract", () => {
     await browser.pause(2000);
     expect(await readEvents()).toEqual(["playing", "skip"]);
     expect(await playPauseButton.getText()).toBe("PLAY");
+  });
+
+  // Positions and durations were whole seconds on iOS and Android and fractional on the web,
+  // so a progress bar could only move in jumps on the two platforms that have one worth
+  // drawing. See getPosition in definitions.ts.
+  it("reports positions in fractional seconds", async () => {
+    const playPauseButton = await waitForControls();
+
+    await selectItem("1");
+    await playPauseButton.click();
+    await waitForPlayPause("PAUSE");
+
+    const positions = await sampleReportedPositions(3);
+
+    // truncating to whole seconds leaves every sample an integer, wherever they land
+    expect(positions.some((position) => !Number.isInteger(position))).toBe(true);
+
+    // and they are still seconds of this item rather than some other unit: they run forward,
+    // and the app polls twice a second, so three of them cannot cover much audio
+    expect(positions).toEqual([...positions].sort((a, b) => a - b));
+    expect(positions[positions.length - 1] - positions[0]).toBeLessThan(10);
+
+    const { duration } = await readReportedSeconds();
+    expect(duration).toBeGreaterThan(positions[positions.length - 1]);
+
+    await playPauseButton.click();
+    await waitForPlayPause("PLAY");
   });
 
   // An item used to roll into the next one and be pulled back, which made the first

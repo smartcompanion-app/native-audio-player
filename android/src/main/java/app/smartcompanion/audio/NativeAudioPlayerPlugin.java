@@ -371,8 +371,8 @@ public class NativeAudioPlayerPlugin extends Plugin {
             return;
         }
 
-        int position = call.getInt("position", 0); // position in seconds
-        mediaController.seekTo(position * 1000L);
+        double position = call.getDouble("position", 0.0); // position in seconds
+        mediaController.seekTo(Math.round(position * 1000));
 
         // seeking resumes, so a listener who dragged the scrubber hears the audio carry on from
         // where they dropped it. The playing event follows from the player itself, and only when
@@ -387,7 +387,7 @@ public class NativeAudioPlayerPlugin extends Plugin {
         JSObject result = new JSObject();
         // always carry a value: an absent key reaches JS as undefined, where iOS
         // and the web implementation both report 0
-        result.put("value", mediaController != null ? mediaController.getCurrentPosition() / 1000 : 0);
+        result.put("value", mediaController != null ? mediaController.getCurrentPosition() / 1000.0 : 0.0);
         call.resolve(result);
     }
 
@@ -395,9 +395,9 @@ public class NativeAudioPlayerPlugin extends Plugin {
     public void getDuration(PluginCall call) {
         JSObject result = new JSObject();
         if (mediaController != null && mediaController.getDuration() > 0) {
-            result.put("value", mediaController.getDuration() / 1000);
+            result.put("value", mediaController.getDuration() / 1000.0);
         } else {
-            result.put("value", 0);
+            result.put("value", 0.0);
         }
         call.resolve(result);
     }
