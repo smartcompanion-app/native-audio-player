@@ -33,9 +33,13 @@ Then, Rollup will bundle the code into a single file at `dist/plugin.js`. This f
 
 #### `npm run verify`
 
-Build and validate the web and native projects, including the native unit tests: Robolectric on Android via `gradlew build test`, and XCTest on iOS via `scripts/test-ios.sh`.
+Build and validate the web and native projects, including the unit tests for all three: Robolectric on Android via `gradlew build test`, XCTest on iOS via `scripts/test-ios.sh`, and Vitest in a headless browser on the web via `npm run test:web`.
 
 This is useful to run in CI to verify that the plugin builds for all platforms. The iOS part needs an iPhone simulator available — the script picks a booted one if there is any, otherwise the first available iPhone, so there is nothing to configure.
+
+#### `npm run test:web`
+
+Run the web implementation's tests on their own. See [Web](#web) below.
 
 #### `npm run lint` / `npm run fmt`
 
@@ -47,7 +51,28 @@ This template is integrated with ESLint, Prettier, and SwiftLint. Using these to
 
 ## Testing
 
-`npm run verify` covers the native unit tests — `ios/Tests/` and `android/src/test/` — but not the behavioural ones. Those live in `example/`, which is a real Capacitor app driven by [WebdriverIO](https://webdriver.io/) and [Appium](https://appium.io/). The same specs in `example/test/` run against both platforms; `APPIUM_PLATFORM` selects which.
+`npm run verify` covers the unit tests — `ios/Tests/`, `android/src/test/` and `src/test/` — but not the behavioural ones. Those live in `example/`, which is a real Capacitor app driven by [WebdriverIO](https://webdriver.io/) and [Appium](https://appium.io/). `APPIUM_PLATFORM` selects which implementation a run drives: `ios`, `browser`, or Android by default.
+
+All three implementations answer to the same contract, the one written down in `src/definitions.ts`, so the specs are split by what they can hold all three to:
+
+| | |
+|---|---|
+| `example/test/contract/` | Runs on **all three**. Goes through the example app's controls and the `audioPlayerChange` events it records in `#events`, both of which iOS, Android and the web implementation are supposed to produce identically. A divergence between platforms is a failing assertion here. |
+| `example/test/native/` | Native runs only. For behaviour a browser has no equivalent of — the earpiece and speaker routing, where the browser picks its own output and always reports `external`. |
+
+A contract test that pins down a behaviour on one platform pins it down on the other two, which is the point. Shared helpers live in `example/test/helpers.js`.
+
+### Web
+
+The web implementation is tested by [Vitest](https://vitest.dev/) in browser mode, which runs `src/web.ts` unchanged in headless Chromium against a real `<audio>` element. A stubbed element would only prove that `web.ts` calls it, not that the playback it promises happens — so the audio files are real ones, synthesized as blob URLs at run time by `src/test/audio-fixture.ts`.
+
+```shell
+npm install
+npx playwright install chromium    # once, downloads the browser
+npm run test:web                   # or test:web:watch while working
+```
+
+The browser is launched with `--autoplay-policy=no-user-gesture-required`, since the tests call `play()` directly rather than through a click. Failure screenshots land in `src/test/__screenshots__/` and are gitignored.
 
 ### iOS
 
@@ -77,6 +102,19 @@ npx cap sync android
 npm run build:android
 npm run test:android
 ```
+
+### Browser
+
+The contract suite against the web implementation. No device and no Capacitor sync — `wdio.conf.js` starts `vite preview` over `example/dist`, which is the same bundle the native runs load out of their app package, and drives it in headless Chrome. WebdriverIO manages chromedriver itself, so there is nothing to install.
+
+```shell
+npm install && npm run build       # in the repo root
+cd example
+npm install && npm run build
+npm run test:browser
+```
+
+Chrome is launched with `--autoplay-policy=no-user-gesture-required`: the app seeks by dispatching `input` and `change` events, which carry no user gesture, so the resume `seekTo` promises would otherwise be refused.
 
 ## Changesets
 

@@ -69,3 +69,6 @@ captures
 .externalNativeBuild
 
 .vscode/
+# Screenshots and traces the browser test runner writes when a test fails
+.vitest-attachments/
+src/test/__screenshots__/

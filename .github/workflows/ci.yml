@@ -54,8 +54,10 @@ jobs:
         run: npm run verify:ios
       - name: Build Android
         run: npm run verify:android
+      # Only the build here. The browser tests that verify:web also runs need a
+      # chromium download, and they get their own job below on a cheaper runner.
       - name: Build Web
-        run: npm run verify:web
+        run: npm run build
 
   lint:
     name: Lint
@@ -73,6 +75,79 @@ jobs:
         run: npm ci
       - name: Run Lint script
         run: npm run lint
+
+  # The web implementation, driven against a real audio element in headless chromium.
+  # No simulator and no emulator, so this is the one test job that finishes in about a
+  # minute and can fail a PR before the native jobs have finished booting a device.
+  test_web:
+    name: Test (Web)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Set up Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      # Keyed on the playwright version, which is what decides the browser build --
+      # a lockfile change that leaves playwright alone keeps the cached download.
+      - name: Cache chromium
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            playwright-${{ runner.os }}-
+      - name: Install chromium
+        run: npx playwright install --with-deps chromium
+      - name: Run web tests
+        run: npm run test:web
+
+  # The same contract specs the two native jobs run, driven against the web implementation
+  # in headless chrome. No device, so it finishes in about a minute -- a divergence between
+  # the three implementations shows up here before either native job has booted anything.
+  test_browser:
+    name: Test Contract (Browser)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Set up Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: |
+            package-lock.json
+            example/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Build plugin
+        run: npm run build
+      - name: Install example dependencies
+        run: npm ci
+        working-directory: ./example
+      - name: Build example
+        run: npm run build
+        working-directory: ./example
+      # No cap sync and no native build: the browser run serves example/dist directly,
+      # which is the same bundle the native runs load out of their app package.
+      - name: Run contract tests in the browser
+        run: npm run test:browser
+        working-directory: ./example
+      - name: Upload test logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-logs-browser
+          path: example/logs/
+          if-no-files-found: ignore
+          retention-days: 7
 
   test_ios:
     name: Build and Test (iOS)
