@@ -145,6 +145,18 @@ describe("Native Audio Player Test", () => {
     );
     expect(states.slice(states.lastIndexOf("playing"))).toEqual(["playing", "completed"]);
 
+    // and it stays stopped rather than starting itself over. The plugin hands a finished item
+    // to the app and lets it decide what comes next, so a repeat is the player getting away
+    // from it -- and everything above is true at the moment the item ends whether it repeats
+    // or not, which is why this looks again a little later.
+    await browser.pause(3000);
+
+    expect(await playPauseButton.getText()).toBe("PLAY");
+    const settled = await browser.execute(() =>
+      document.querySelector("#events").innerHTML.trim().split(/\s+/)
+    );
+    expect(settled[settled.length - 1]).toBe("completed");
+
     // and it is genuinely ready to go again, which is what the rewind is for
     await playPauseButton.click();
 
