@@ -23,6 +23,10 @@ const updatePosition = async () => {
   }
 };
 
+const setAudioOutput = (output) => {
+  document.querySelector('#audio-output').innerHTML = output.toUpperCase();
+};
+
 const setActiveItem = async (id) => {
   const select = document.querySelector('#select');
   select.querySelectorAll('button').forEach((button) => {
@@ -48,6 +52,9 @@ const load = async () => {
   await NativeAudioPlayer.start({
     items: items,
   });
+
+  // the event only fires on changes, so the initial output has to be queried
+  setAudioOutput((await NativeAudioPlayer.getAudioOutput()).output);
 
   document.querySelector('#play-pause').removeAttribute('disabled');
   document.querySelector('#prev').removeAttribute('disabled');
@@ -100,10 +107,8 @@ document.querySelector('#position').addEventListener('input', async () => {
 document.querySelector('#position').addEventListener('change', async (e) => {
   const duration = (await NativeAudioPlayer.getDuration()).value;
   const position = parseInt((e.target.value / 100) * duration);
-  NativeAudioPlayer.seekTo({ position });
-  if (document.querySelector('#play-pause').innerText == 'PLAY') {
-    NativeAudioPlayer.play();
-  }
+  // seekTo resumes on its own, so there is no play() to make here
+  await NativeAudioPlayer.seekTo({ position });
 });
 document.querySelector('#select').addEventListener('click', async (e) => {
   const id = e.target.getAttribute('data-id');
@@ -113,19 +118,34 @@ document.querySelector('#select').addEventListener('click', async (e) => {
 });
 
 (async () => {
-  await NativeAudioPlayer.addListener('update', async (data) => {
+  await NativeAudioPlayer.addListener('audioOutputChange', (data) => {
+    setAudioOutput(data.output);
+  });
+
+  await NativeAudioPlayer.addListener('audioPlayerChange', async (data) => {
+    // recorded before anything acts on it, so the log is the order the plugin reported and
+    // not the order this app got round to handling
+    const events = document.querySelector('#events');
+    events.innerHTML = `${events.innerHTML}${data.state} `;
+
     if (data.state == 'playing') {
       document.querySelector('#play-pause').innerHTML = 'PAUSE';
       await updatePosition();
     } else if (data.state == 'paused') {
       document.querySelector('#play-pause').innerHTML = 'PLAY';
+      // the poller only runs while playing, so the last position it read stands until
+      // something asks again -- and a pause does not always leave the player where it
+      // was: an item that plays out rewinds itself to the start
+      await updatePosition();
     } else if (data.state == 'skip') {
       document.querySelector('#play-pause').innerHTML = 'PLAY';
       await updatePosition();
       setActiveItem(data.id);
     } else if (data.state == 'completed') {
-      await NativeAudioPlayer.pause();
-      await NativeAudioPlayer.seekTo({ position: 0 });
+      // the player stops at the end of the item and rewinds it itself, so there is nothing to
+      // pause or seek here -- only the button to put back, since completed is the one state
+      // reported for this and no paused follows it
+      document.querySelector('#play-pause').innerHTML = 'PLAY';
       await updatePosition();
     }
   });

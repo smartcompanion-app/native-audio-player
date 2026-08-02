@@ -87,8 +87,18 @@ public class AudioPlayerService extends MediaSessionService {
     @SuppressLint("UnsafeOptInUsageError")
     public ExoPlayer getPlayer(String channel) {
         return new ExoPlayer.Builder(this)
-            //.setPauseAtEndOfMediaItems(true)
+            // stop at the boundary instead of rolling into the next item. The plugin does not
+            // advance on its own -- it hands the completed item to the app and lets it decide --
+            // and undoing an advance from onMediaItemTransition cannot do that quietly: the
+            // callback arrives once the next item is already being rendered, so the first
+            // milliseconds of it are audible before the pause lands.
+            .setPauseAtEndOfMediaItems(true)
             .setAudioAttributes(getAudioAttributes(channel), false)
+            // pause when the audio would fall back to the speaker on its own, e.g. when
+            // headphones are unplugged. The plugin pauses on every output change anyway,
+            // but this happens inside the audio framework and so beats the device callback
+            // to it -- without it the first moment of playback escapes through the speaker.
+            .setHandleAudioBecomingNoisy(true)
             .build();
     }
 

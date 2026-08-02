@@ -2,7 +2,7 @@ import XCTest
 import MediaPlayer
 @testable import NativeAudioPlayerPlugin
 
-class NativeAudioPlayerTests: XCTestCase {
+class NativeAudioPlayerTests: PluginTestCase {
 
     private func makePlayer() -> NativeAudioPlayer {
         return NativeAudioPlayer([
@@ -85,19 +85,43 @@ class NativeAudioPlayerTests: XCTestCase {
         XCTAssertEqual(player.title, "Crocodile")
     }
 
-    func testSelectKeepsTheCurrentItemForAnUnknownId() {
-        let player = makePlayer()
+    // MARK: - End of an item
+    //
+    // See AudioPlayerState in definitions.ts: an item that plays out reports completed, stays
+    // selected, and is rewound so a following play() starts it again rather than finding
+    // nothing left to play.
 
-        _ = player.select("does-not-exist")
+    func testAnItemThatPlaysOutIsRewoundAndReported() throws {
+        let audio = try writeAudioFile(at: "played-out.wav", seconds: 5)
+        let player = NativeAudioPlayer([["id": "1", "audioUri": audio.absoluteString]])
+        var completed: [String] = []
+        player.onCompleted = { completed.append($0) }
 
+        XCTAssertTrue(player.load())
+        player.seekTo(4)
+        XCTAssertEqual(player.position, 4)
+
+        player.audioPlayerDidFinishPlaying(try XCTUnwrap(player.audioPlayer), successfully: true)
+
+        XCTAssertEqual(player.position, 0)
+        XCTAssertEqual(completed, ["1"])
         XCTAssertEqual(player.currentId, "1")
     }
 
-    func testDurationAndPositionAreZeroWithoutLoadedAudio() {
-        let player = makePlayer()
+    func testAnItemThatFailedToPlayOutIsLeftAlone() throws {
+        let audio = try writeAudioFile(at: "failed.wav", seconds: 5)
+        let player = NativeAudioPlayer([["id": "1", "audioUri": audio.absoluteString]])
+        var completed: [String] = []
+        player.onCompleted = { completed.append($0) }
 
-        XCTAssertEqual(player.duration, 0)
-        XCTAssertEqual(player.position, 0)
+        XCTAssertTrue(player.load())
+        player.seekTo(4)
+
+        player.audioPlayerDidFinishPlaying(try XCTUnwrap(player.audioPlayer), successfully: false)
+
+        // nothing played out, so there is nothing to report and nothing to rewind
+        XCTAssertEqual(player.position, 4)
+        XCTAssertTrue(completed.isEmpty)
     }
 
     // The plugin holds a player over an empty item list until start() succeeds,
@@ -137,5 +161,41 @@ class NativeAudioPlayerTests: XCTestCase {
         NativeAudioPlayer([]).initLockScreen()
 
         XCTAssertNil(MPNowPlayingInfoCenter.default().nowPlayingInfo)
+    }
+
+    func testUpdateLockScreenIsANoOpWithoutNowPlayingInfo() {
+        MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
+
+        // reached through pause() and seekTo() before anything ever loaded, where writing
+        // the two fields on their own would put a player on the lock screen that has no
+        // title, no artwork and nothing to play
+        makePlayer().updateLockScreen()
+
+        XCTAssertNil(MPNowPlayingInfoCenter.default().nowPlayingInfo)
+    }
+
+    func testAudioOutputMapsTheBuiltInPorts() {
+        XCTAssertEqual(NativeAudioPlayer.audioOutput(for: .builtInReceiver), "earpiece")
+        XCTAssertEqual(NativeAudioPlayer.audioOutput(for: .builtInSpeaker), "speaker")
+    }
+
+    func testAudioOutputReportsExternalRoutesAsExternal() {
+        // the earpiece/speaker override does not apply to these, so neither value would be true
+        XCTAssertEqual(NativeAudioPlayer.audioOutput(for: .bluetoothA2DP), "external")
+        XCTAssertEqual(NativeAudioPlayer.audioOutput(for: .headphones), "external")
+        XCTAssertEqual(NativeAudioPlayer.audioOutput(for: nil), "external")
+    }
+
+    func testEveryOutputChangeIsReported() {
+        let player = makePlayer()
+        var reported: [String] = []
+        player.onAudioOutputChanged = { reported.append($0) }
+
+        // an output that stays the same is still a different device -- swapping one bluetooth
+        // device for another has to reach the app, see the behaviour overview in the README
+        player.notifyAudioOutputChange()
+        player.notifyAudioOutputChange()
+
+        XCTAssertEqual(reported.count, 2)
     }
 }

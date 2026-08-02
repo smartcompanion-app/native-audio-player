@@ -58,6 +58,11 @@ dependencies {
     // every MediaController method the plugin calls is final, so the tests need
     // Mockito 5's inline mock maker to stand one in
     testImplementation "org.mockito:mockito-core:5.20.0"
+    // runs a real ExoPlayer under Robolectric, so what the player does at an item boundary is
+    // observed rather than assumed. A mocked controller only ever reports back what the test
+    // told it to.
+    testImplementation "androidx.media3:media3-test-utils:$media3_version"
+    testImplementation "androidx.media3:media3-test-utils-robolectric:$media3_version"
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
     androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
 

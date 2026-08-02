@@ -14,6 +14,7 @@
     "build:ios": "xcodebuild -project ./ios/App/App.xcodeproj -scheme App -configuration Debug -sdk iphonesimulator -derivedDataPath ./ios/build",
     "test:android": "npx wdio run ./wdio.conf.js",
     "test:ios": "APPIUM_PLATFORM=ios npx wdio run ./wdio.conf.js",
+    "test:browser": "APPIUM_PLATFORM=browser npx wdio run ./wdio.conf.js",
     "preview": "vite preview"
   },
   "dependencies": {
