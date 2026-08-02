@@ -115,7 +115,7 @@ public class NativeAudioPlayerPluginTest {
         plugin.getPosition(call);
 
         // an absent key reaches JS as undefined, where iOS and web both report 0
-        Assert.assertEquals(0L, assertResolved(call).getLong("value"));
+        Assert.assertEquals(0.0, assertResolved(call).getDouble("value"), 0.0);
     }
 
     @Test
@@ -124,7 +124,7 @@ public class NativeAudioPlayerPluginTest {
 
         plugin.getDuration(call);
 
-        Assert.assertEquals(0L, assertResolved(call).getLong("value"));
+        Assert.assertEquals(0.0, assertResolved(call).getDouble("value"), 0.0);
     }
 
     /**

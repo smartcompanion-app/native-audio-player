@@ -90,8 +90,8 @@ class NativeAudioPlayerPluginTests: PluginTestCase {
         plugin.getPosition(positionRecorder.makeCall())
         plugin.getDuration(durationRecorder.makeCall())
 
-        XCTAssertEqual(positionRecorder.resolved?["value"] as? Int, 0)
-        XCTAssertEqual(durationRecorder.resolved?["value"] as? Int, 0)
+        XCTAssertEqual(positionRecorder.resolved?["value"] as? TimeInterval, 0)
+        XCTAssertEqual(durationRecorder.resolved?["value"] as? TimeInterval, 0)
     }
 
     func testStartWithEmptyItemsRejects() {
@@ -180,12 +180,13 @@ class NativeAudioPlayerPluginTests: PluginTestCase {
         plugin.seekTo(CallRecorder().makeCall(["position": 99]))
         let past = CallRecorder()
         plugin.getPosition(past.makeCall())
-        XCTAssertEqual(past.resolved?["value"] as? Int, 5)
+        // positions are fractional now, and the player quantises a seek to a sample boundary
+        XCTAssertEqual(try XCTUnwrap(past.resolved?["value"] as? TimeInterval), 5, accuracy: 0.05)
 
         plugin.seekTo(CallRecorder().makeCall(["position": -10]))
         let before = CallRecorder()
         plugin.getPosition(before.makeCall())
-        XCTAssertEqual(before.resolved?["value"] as? Int, 0)
+        XCTAssertEqual(try XCTUnwrap(before.resolved?["value"] as? TimeInterval), 0, accuracy: 0.05)
     }
 
     func testSelectRejectsAnUnknownIdAndKeepsTheCurrentItem() throws {

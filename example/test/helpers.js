@@ -140,6 +140,41 @@ export const readPosition = async () => {
 };
 
 /**
+ * The seconds the plugin last reported, which the app parks on the slider -- the slider value
+ * itself is a rounded percentage and cannot show them. Written while playing only, so this is
+ * NaN until the app has polled at least once.
+ */
+export const readReportedSeconds = async () => {
+  return browser.execute(() => ({
+    position: Number(document.querySelector("#position").dataset.position),
+    duration: Number(document.querySelector("#position").dataset.duration),
+  }));
+};
+
+/**
+ * Samples what the plugin reports while the audio runs, until `count` different positions have
+ * been seen. The app polls twice a second, so this takes about half a second per sample.
+ */
+export const sampleReportedPositions = async (count) => {
+  const positions = [];
+
+  await browser.waitUntil(
+    async () => {
+      const { position } = await readReportedSeconds();
+
+      if (Number.isFinite(position) && position !== positions[positions.length - 1]) {
+        positions.push(position);
+      }
+
+      return positions.length >= count;
+    },
+    { timeout: 15000, interval: 100, timeoutMsg: `Only ${positions.length} of ${count} positions were reported` }
+  );
+
+  return positions;
+};
+
+/**
  * Drag the position slider to a percentage of the item. The slider is a range input, which
  * cannot be dragged through webdriver, and the app only seeks on the change event -- so set
  * the value and fire the events the way a drag would. The input event pauses, the change

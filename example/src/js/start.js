@@ -12,7 +12,13 @@ const updatePosition = async () => {
   const duration = (await NativeAudioPlayer.getDuration()).value;
   const position = (await NativeAudioPlayer.getPosition()).value;
   const value = (position / duration) * 100;
-  document.querySelector('#position').value = value;
+  const slider = document.querySelector('#position');
+  slider.value = value;
+
+  // the slider is a percentage and rounds to its step, so the seconds the player reported are
+  // kept next to it -- the e2e suite has no other way to see what the plugin actually returns
+  slider.dataset.position = position;
+  slider.dataset.duration = duration;
 
   if (duration >= position) {
     setTimeout(() => {
@@ -106,7 +112,8 @@ document.querySelector('#position').addEventListener('input', async () => {
 });
 document.querySelector('#position').addEventListener('change', async (e) => {
   const duration = (await NativeAudioPlayer.getDuration()).value;
-  const position = parseInt((e.target.value / 100) * duration);
+  // positions are fractional seconds, so the slider hands over what it actually points at
+  const position = (e.target.value / 100) * duration;
   // seekTo resumes on its own, so there is no play() to make here
   await NativeAudioPlayer.seekTo({ position });
 });

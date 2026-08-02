@@ -51,7 +51,9 @@ class NativeAudioPlayerLockScreenTests: PluginTestCase {
 
         let info = MPNowPlayingInfoCenter.default().nowPlayingInfo
         XCTAssertEqual(info?[MPNowPlayingInfoPropertyPlaybackRate] as? Double, 0.0)
-        XCTAssertEqual(info?[MPNowPlayingInfoPropertyElapsedPlaybackTime] as? Int, 0)
+        // read through NSNumber: the info center hands a whole number back as an integer one,
+        // which "as? TimeInterval" refuses even though the elapsed time goes in as a Double
+        XCTAssertEqual(try XCTUnwrap(info?[MPNowPlayingInfoPropertyElapsedPlaybackTime] as? NSNumber).doubleValue, 0, accuracy: 0.05)
     }
 
     func testPauseReportsThePlayerAsStopped() throws {
@@ -74,7 +76,7 @@ class NativeAudioPlayerLockScreenTests: PluginTestCase {
         plugin.seekTo(CallRecorder().makeCall(["position": 3]))
 
         let info = MPNowPlayingInfoCenter.default().nowPlayingInfo
-        XCTAssertEqual(info?[MPNowPlayingInfoPropertyElapsedPlaybackTime] as? Int, 3)
+        XCTAssertEqual(try XCTUnwrap(info?[MPNowPlayingInfoPropertyElapsedPlaybackTime] as? NSNumber).doubleValue, 3, accuracy: 0.05)
     }
 
     // The lock screen scrubber does not come through seekTo above -- it arrives on a command
@@ -129,7 +131,7 @@ class NativeAudioPlayerLockScreenTests: PluginTestCase {
         let info = MPNowPlayingInfoCenter.default().nowPlayingInfo
         XCTAssertEqual(info?[MPMediaItemPropertyTitle] as? String, "Title 2")
         XCTAssertEqual(info?[MPNowPlayingInfoPropertyPlaybackRate] as? Double, 0.0)
-        XCTAssertEqual(info?[MPNowPlayingInfoPropertyElapsedPlaybackTime] as? Int, 0)
+        XCTAssertEqual(try XCTUnwrap(info?[MPNowPlayingInfoPropertyElapsedPlaybackTime] as? NSNumber).doubleValue, 0, accuracy: 0.05)
     }
 
     func testStopClearsNowPlayingInfo() throws {

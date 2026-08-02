@@ -18,11 +18,11 @@ import UIKit
     var currentId: String {
         currentItem?.id ?? ""
     }
-    var duration: Int {
-        Int(audioPlayer?.duration ?? 0)
+    var duration: TimeInterval {
+        audioPlayer?.duration ?? 0
     }
-    var position: Int {
-        Int(audioPlayer?.currentTime ?? 0)
+    var position: TimeInterval {
+        audioPlayer?.currentTime ?? 0
     }
     /// What the lock screen is told about the speed of playback.
     ///
@@ -250,11 +250,11 @@ import UIKit
         return load()
     }
 
-    func seekTo(_ position: Int) {
+    func seekTo(_ position: TimeInterval) {
         // a position outside the item is pulled to the nearest end of it. AVAudioPlayer does not
         // keep one that is out of range, so without this a seek past the end silently lands
         // wherever the player felt like rather than on the last moment of the audio.
-        audioPlayer?.currentTime = Double(min(max(0, position), duration))
+        audioPlayer?.currentTime = min(max(0, position), duration)
         updateLockScreen()
     }
 
