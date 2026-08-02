@@ -46,6 +46,11 @@ export interface NativeAudioPlayerPlugin {
 
   /**
    * Pause the currently playing audio item.
+   *
+   * Reports `paused` only when something was playing. Pausing a player that is already
+   * stopped is accepted and changes nothing, so it reports nothing -- an app that pauses
+   * while a scrubber is dragged calls this many times over one gesture and hears about the
+   * first of them.
    * @returns {Promise<void>} A promise that resolves when the audio is paused.
    */
   pause(): Promise<void>;
@@ -74,6 +79,10 @@ export interface NativeAudioPlayerPlugin {
 
   /**
    * Seek to a specific position in the currently playing audio item.
+   *
+   * Seeking resumes, so a listener who dragged a scrubber hears the audio carry on from where
+   * they dropped it. `playing` is reported only when that actually started something: a player
+   * that was already running carries on and reports nothing.
    *
    * A position outside the item is pulled to the nearest end of it, so seeking past the end
    * leaves the player on the last moment rather than somewhere it cannot play from. That is
@@ -142,12 +151,14 @@ export interface NativeAudioPlayerPlugin {
  * The playback state of the player.
  *
  * Exactly one event is emitted per transition, so a state never arrives paired with another
- * describing the same change. Every state below behaves the same way on iOS and Android.
+ * describing the same change -- and a call that changes nothing reports nothing at all. Every
+ * state below behaves the same way on iOS, Android and the web.
  *
  * - `playing` -- playback started or resumed.
  * - `paused` -- playback stopped and the position was kept. Emitted for a
- *   {@link NativeAudioPlayerPlugin.pause} call and for an output change, but never for an item
- *   that reached its end: that is `completed`.
+ *   {@link NativeAudioPlayerPlugin.pause} call that stopped something, for a
+ *   {@link NativeAudioPlayerPlugin.stop} call whatever was happening, and for an output
+ *   change, but never for an item that reached its end: that is `completed`.
  * - `skip` -- the selected item changed through {@link NativeAudioPlayerPlugin.next},
  *   {@link NativeAudioPlayerPlugin.previous} or {@link NativeAudioPlayerPlugin.select}. The new
  *   item is selected but not playing, so it takes a {@link NativeAudioPlayerPlugin.play} to

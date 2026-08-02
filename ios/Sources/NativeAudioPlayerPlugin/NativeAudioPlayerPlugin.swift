@@ -136,7 +136,17 @@ public class NativeAudioPlayerPlugin: CAPPlugin, CAPBridgedPlugin {
             return
         }
 
-        onPause()
+        // Pausing a player that is not running changes nothing, and a state is reported per
+        // change rather than per call -- see AudioPlayerState in definitions.ts. An app that
+        // pauses while a slider is dragged calls this on every input event, which is many
+        // times over one gesture, and only the first of them stops anything.
+        //
+        // stop() reports its pause whatever was happening, since clearing the playlist is a
+        // change either way, and so this does not go through onPause's guard.
+        if player.audioPlayer?.isPlaying == true {
+            onPause()
+        }
+
         call.resolve()
     }
 

@@ -175,8 +175,8 @@ that actually happened, so a call that changes nothing stays silent.
 |---|---|---|---|
 | `NativeAudioPlayer.start` | | | Prepares the playlist and selects the first item without playing it. Everything that moves the player — `play`, `pause`, `seekTo`, `next`, `previous`, `select`, `setEarpiece`, `setSpeaker` — is rejected until start is called. `stop` is allowed at any time, and `getPosition` and `getDuration` answer 0 |
 | `NativeAudioPlayer.play` | `playing` | |  |
-| `NativeAudioPlayer.pause` | `paused` | | Keeps the position, so a following `play` carries on from there |
-| `NativeAudioPlayer.seekTo` | `playing` | | The new position is selected and playing is started. A position outside the item is pulled to its nearest end |
+| `NativeAudioPlayer.pause` | `paused` | | Keeps the position, so a following `play` carries on from there. Reported only when something was playing — pausing an already stopped player is accepted and changes nothing, which is what an app that pauses on every step of a scrubber drag does |
+| `NativeAudioPlayer.seekTo` | `playing` | | The new position is selected and playing is started, so `playing` is reported only when that started something — a player already running carries on silently. A position outside the item is pulled to its nearest end |
 | `NativeAudioPlayer.next` | `skip` | | The next audio item is selected or the first if the current is the last item. The position is set to 0 and playing is not started. |
 | `NativeAudioPlayer.previous`| `skip` | | The previous audio item is selected or the last if the current is the first item. The position is set to 0 and playing is not started. |
 | `NativeAudioPlayer.select` | `skip` | | The item is select (reject if selected id is not existing).  The position is set to 0 and playing is not started. |
@@ -310,6 +310,11 @@ pause() => Promise<void>
 
 Pause the currently playing audio item.
 
+Reports `paused` only when something was playing. Pausing a player that is already
+stopped is accepted and changes nothing, so it reports nothing -- an app that pauses
+while a scrubber is dragged calls this many times over one gesture and hears about the
+first of them.
+
 --------------------
 
 
@@ -366,6 +371,10 @@ seekTo(options: { position: number; }) => Promise<void>
 ```
 
 Seek to a specific position in the currently playing audio item.
+
+Seeking resumes, so a listener who dragged a scrubber hears the audio carry on from where
+they dropped it. `playing` is reported only when that actually started something: a player
+that was already running carries on and reports nothing.
 
 A position outside the item is pulled to the nearest end of it, so seeking past the end
 leaves the player on the last moment rather than somewhere it cannot play from. That is
@@ -542,12 +551,14 @@ neither value would describe what is actually heard.
 The playback state of the player.
 
 Exactly one event is emitted per transition, so a state never arrives paired with another
-describing the same change. Every state below behaves the same way on iOS and Android.
+describing the same change -- and a call that changes nothing reports nothing at all. Every
+state below behaves the same way on iOS, Android and the web.
 
 - `playing` -- playback started or resumed.
 - `paused` -- playback stopped and the position was kept. Emitted for a
-  {@link NativeAudioPlayerPlugin.pause} call and for an output change, but never for an item
-  that reached its end: that is `completed`.
+  {@link NativeAudioPlayerPlugin.pause} call that stopped something, for a
+  {@link NativeAudioPlayerPlugin.stop} call whatever was happening, and for an output
+  change, but never for an item that reached its end: that is `completed`.
 - `skip` -- the selected item changed through {@link NativeAudioPlayerPlugin.next},
   {@link NativeAudioPlayerPlugin.previous} or {@link NativeAudioPlayerPlugin.select}. The new
   item is selected but not playing, so it takes a {@link NativeAudioPlayerPlugin.play} to

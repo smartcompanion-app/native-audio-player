@@ -94,6 +94,18 @@ public class NativeAudioPlayerPlugin extends Plugin {
 
             try {
                 JSObject json = nativeAudioPlayer.preparePlayerEvent("skip", mediaItem);
+                // The new item is selected but not playing, so skipping away from a playing item
+                // has to stop it -- and that stop is part of the skip rather than a change of
+                // its own. A transition reports one state, see AudioPlayerState in
+                // definitions.ts, so the paused it would otherwise raise is swallowed the way
+                // the one at the end of an item is below, and only claimed when it will
+                // actually arrive.
+                //
+                // getPlayWhenReady rather than isPlaying: seeking to another item drops the
+                // player out of STATE_READY, and the state is updated before the listeners are
+                // called -- so isPlaying already reads false here, reporting the change this is
+                // trying to catch. playWhenReady still says whether anybody asked for playback.
+                pausedEventAlreadySent = controller.getPlayWhenReady();
                 controller.pause();
                 notifyListeners("audioPlayerChange", json);
             } catch (Exception e) {
