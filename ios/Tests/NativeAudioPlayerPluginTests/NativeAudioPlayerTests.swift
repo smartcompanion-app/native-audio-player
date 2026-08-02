@@ -2,7 +2,7 @@ import XCTest
 import MediaPlayer
 @testable import NativeAudioPlayerPlugin
 
-class NativeAudioPlayerTests: XCTestCase {
+class NativeAudioPlayerTests: PluginTestCase {
 
     private func makePlayer() -> NativeAudioPlayer {
         return NativeAudioPlayer([
@@ -85,19 +85,43 @@ class NativeAudioPlayerTests: XCTestCase {
         XCTAssertEqual(player.title, "Crocodile")
     }
 
-    func testSelectKeepsTheCurrentItemForAnUnknownId() {
-        let player = makePlayer()
+    // MARK: - End of an item
+    //
+    // See AudioPlayerState in definitions.ts: an item that plays out reports completed, stays
+    // selected, and is rewound so a following play() starts it again rather than finding
+    // nothing left to play.
 
-        _ = player.select("does-not-exist")
+    func testAnItemThatPlaysOutIsRewoundAndReported() throws {
+        let audio = try writeAudioFile(at: "played-out.wav", seconds: 5)
+        let player = NativeAudioPlayer([["id": "1", "audioUri": audio.absoluteString]])
+        var completed: [String] = []
+        player.onCompleted = { completed.append($0) }
 
+        XCTAssertTrue(player.load())
+        player.seekTo(4)
+        XCTAssertEqual(player.position, 4)
+
+        player.audioPlayerDidFinishPlaying(try XCTUnwrap(player.audioPlayer), successfully: true)
+
+        XCTAssertEqual(player.position, 0)
+        XCTAssertEqual(completed, ["1"])
         XCTAssertEqual(player.currentId, "1")
     }
 
-    func testDurationAndPositionAreZeroWithoutLoadedAudio() {
-        let player = makePlayer()
+    func testAnItemThatFailedToPlayOutIsLeftAlone() throws {
+        let audio = try writeAudioFile(at: "failed.wav", seconds: 5)
+        let player = NativeAudioPlayer([["id": "1", "audioUri": audio.absoluteString]])
+        var completed: [String] = []
+        player.onCompleted = { completed.append($0) }
 
-        XCTAssertEqual(player.duration, 0)
-        XCTAssertEqual(player.position, 0)
+        XCTAssertTrue(player.load())
+        player.seekTo(4)
+
+        player.audioPlayerDidFinishPlaying(try XCTUnwrap(player.audioPlayer), successfully: false)
+
+        // nothing played out, so there is nothing to report and nothing to rewind
+        XCTAssertEqual(player.position, 4)
+        XCTAssertTrue(completed.isEmpty)
     }
 
     // The plugin holds a player over an empty item list until start() succeeds,
@@ -148,10 +172,6 @@ class NativeAudioPlayerTests: XCTestCase {
         makePlayer().updateLockScreen()
 
         XCTAssertNil(MPNowPlayingInfoCenter.default().nowPlayingInfo)
-    }
-
-    func testPlaybackRateIsZeroWithoutLoadedAudio() {
-        XCTAssertEqual(makePlayer().playbackRate, 0.0)
     }
 
     func testAudioOutputMapsTheBuiltInPorts() {

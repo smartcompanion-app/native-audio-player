@@ -21,32 +21,35 @@ class NativeAudioPlayerPluginTests: PluginTestCase {
         XCTAssertEqual(plugin.events.first?.data["id"] as? String, "")
     }
 
-    func testPlayBeforeStartRejects() {
+    /// The three that share requireLoadedItem. Resolving used to announce a playing state
+    /// with nothing behind it.
+    func testPlayPauseAndSeekToBeforeStartReject() {
         let plugin = RecordingPlugin()
-        let recorder = CallRecorder()
+        let playRecorder = CallRecorder()
+        let pauseRecorder = CallRecorder()
+        let seekRecorder = CallRecorder()
 
+        plugin.play(playRecorder.makeCall())
+        plugin.pause(pauseRecorder.makeCall())
+        plugin.seekTo(seekRecorder.makeCall(["position": 3]))
+
+        XCTAssertEqual(playRecorder.rejected, "could not play without a loaded audio item")
+        XCTAssertEqual(pauseRecorder.rejected, "could not play without a loaded audio item")
+        XCTAssertEqual(seekRecorder.rejected, "could not play without a loaded audio item")
+        XCTAssertTrue(plugin.states.isEmpty)
+    }
+
+    /// The same guard reached from the other side: stop() unloads, so what worked a moment
+    /// ago has to start rejecting again.
+    func testPlayAfterStopRejects() throws {
+        let audio = try writeAudioFile(at: "after-stop.wav")
+        let plugin = RecordingPlugin()
+
+        plugin.start(CallRecorder().makeCall(["items": [item(id: "1", audio: audio)]]))
+        plugin.stop(CallRecorder().makeCall())
+
+        let recorder = CallRecorder()
         plugin.play(recorder.makeCall())
-
-        // resolving used to announce a playing state with nothing behind it
-        XCTAssertEqual(recorder.rejected, "could not play without a loaded audio item")
-        XCTAssertTrue(plugin.states.isEmpty)
-    }
-
-    func testPauseBeforeStartRejects() {
-        let plugin = RecordingPlugin()
-        let recorder = CallRecorder()
-
-        plugin.pause(recorder.makeCall())
-
-        XCTAssertEqual(recorder.rejected, "could not play without a loaded audio item")
-        XCTAssertTrue(plugin.states.isEmpty)
-    }
-
-    func testSeekToBeforeStartRejects() {
-        let plugin = RecordingPlugin()
-        let recorder = CallRecorder()
-
-        plugin.seekTo(recorder.makeCall(["position": 3]))
 
         XCTAssertEqual(recorder.rejected, "could not play without a loaded audio item")
     }
@@ -160,6 +163,42 @@ class NativeAudioPlayerPluginTests: PluginTestCase {
         plugin.start(recorder.makeCall(["items": [item(id: "1", audio: missing)]]))
 
         XCTAssertEqual(recorder.rejected, "could not load audio items")
+    }
+
+    // MARK: - Contract edges
+    //
+    // See the behaviour overview in the README.
+
+    func testSeekingOutsideTheItemStopsAtItsNearestEnd() throws {
+        let audio = try writeAudioFile(at: "outside.wav", seconds: 5)
+        let plugin = RecordingPlugin()
+
+        plugin.start(CallRecorder().makeCall(["items": [item(id: "1", audio: audio)]]))
+
+        // AVAudioPlayer does not keep a position past the end, so an unclamped seek landed
+        // somewhere the player could not play from
+        plugin.seekTo(CallRecorder().makeCall(["position": 99]))
+        let past = CallRecorder()
+        plugin.getPosition(past.makeCall())
+        XCTAssertEqual(past.resolved?["value"] as? Int, 5)
+
+        plugin.seekTo(CallRecorder().makeCall(["position": -10]))
+        let before = CallRecorder()
+        plugin.getPosition(before.makeCall())
+        XCTAssertEqual(before.resolved?["value"] as? Int, 0)
+    }
+
+    func testSelectRejectsAnUnknownIdAndKeepsTheCurrentItem() throws {
+        let audio = try writeAudioFile(at: "select.wav")
+        let plugin = RecordingPlugin()
+        let recorder = CallRecorder()
+
+        plugin.start(CallRecorder().makeCall(["items": [item(id: "1", audio: audio)]]))
+        plugin.select(recorder.makeCall(["id": "does-not-exist"]))
+
+        // it used to resolve with the item the caller already had
+        XCTAssertEqual(recorder.rejected, "could not switch to item with given id")
+        XCTAssertFalse(plugin.states.contains("skip"))
     }
 
     // MARK: - Lifetime

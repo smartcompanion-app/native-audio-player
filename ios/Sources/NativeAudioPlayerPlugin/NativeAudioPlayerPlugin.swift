@@ -87,7 +87,7 @@ public class NativeAudioPlayerPlugin: CAPPlugin, CAPBridgedPlugin {
             setTarget(commandCenter.changePlaybackPositionCommand, &seekTarget) { [weak self] event in
                 if let changePlaybackPositionCommandEvent = event as? MPChangePlaybackPositionCommandEvent {
                     let positionTime = changePlaybackPositionCommandEvent.positionTime
-                    self?.player.seekTo(Int(positionTime))
+                    self?.onSeekTo(Int(positionTime))
                 }
                 return .success
             }
@@ -172,7 +172,18 @@ public class NativeAudioPlayerPlugin: CAPPlugin, CAPBridgedPlugin {
             return
         }
 
-        let position = call.getInt("position") ?? 0
+        onSeekTo(call.getInt("position") ?? 0)
+
+        call.resolve()
+    }
+
+    /// Moves the player and starts it, which is what seeking means for every caller -- see
+    /// seekTo in the behaviour overview in the README.
+    ///
+    /// Not private, and not inlined into either caller: the lock screen scrubber reaches this
+    /// through a command handler rather than through seekTo above, and while it did the work
+    /// itself it dropped the resume and the playing event that the contract promises.
+    func onSeekTo(_ position: Int) {
         let wasPlaying = player.audioPlayer?.isPlaying == true
 
         player.seekTo(position)
@@ -182,8 +193,6 @@ public class NativeAudioPlayerPlugin: CAPPlugin, CAPBridgedPlugin {
         if !wasPlaying {
             onPlay()
         }
-
-        call.resolve()
     }
 
     @objc func getPosition(_ call: CAPPluginCall) {
@@ -218,6 +227,12 @@ public class NativeAudioPlayerPlugin: CAPPlugin, CAPBridgedPlugin {
         player.setSpeaker()
         call.resolve()
     }
+
+}
+
+/// The plumbing behind the lock screen and control centre transport. Kept apart from the
+/// plugin methods above: these talk to a process-wide singleton rather than to a call.
+extension NativeAudioPlayerPlugin {
 
     /// Turns off every command the plugin does not answer.
     ///
@@ -338,5 +353,4 @@ public class NativeAudioPlayerPlugin: CAPPlugin, CAPBridgedPlugin {
         self.notifyListeners("audioPlayerChange", data: ["id": player.currentId, "state": "paused"])
         self.notifyListeners("audioOutputChange", data: ["output": output])
     }
-
 }

@@ -77,6 +77,41 @@ class NativeAudioPlayerLockScreenTests: PluginTestCase {
         XCTAssertEqual(info?[MPNowPlayingInfoPropertyElapsedPlaybackTime] as? Int, 3)
     }
 
+    // The lock screen scrubber does not come through seekTo above -- it arrives on a command
+    // handler, which used to move the player itself and so skipped the resume and the playing
+    // event that seeking promises everywhere else. Both entry points share onSeekTo now, and
+    // this covers the one the plugin methods do not reach.
+
+    func testSeekingFromTheLockScreenStartsPlaying() throws {
+        let audio = try writeAudioFile(at: "remote-seek.wav", seconds: 5)
+        let plugin = RecordingPlugin()
+
+        plugin.start(CallRecorder().makeCall(["items": [item(id: "1", audio: audio)]]))
+        XCTAssertEqual(plugin.states, [], "start must not play on its own")
+
+        plugin.onSeekTo(3)
+
+        XCTAssertEqual(plugin.states, ["playing"], "seeking has to start playing")
+        XCTAssertEqual(
+            MPNowPlayingInfoCenter.default().nowPlayingInfo?[MPNowPlayingInfoPropertyPlaybackRate] as? Double,
+            1.0,
+            "the lock screen has to be told it is playing again"
+        )
+    }
+
+    func testSeekingWhileAlreadyPlayingReportsNothing() throws {
+        let audio = try writeAudioFile(at: "remote-seek-playing.wav", seconds: 5)
+        let plugin = RecordingPlugin()
+
+        plugin.start(CallRecorder().makeCall(["items": [item(id: "1", audio: audio)]]))
+        plugin.play(CallRecorder().makeCall())
+        let afterPlay = plugin.states
+
+        plugin.onSeekTo(2)
+
+        XCTAssertEqual(plugin.states, afterPlay, "playing on is not a state change")
+    }
+
     func testNextRestartsTheLockScreenOnTheNewItem() throws {
         let first = try writeAudioFile(at: "first.wav", seconds: 5)
         let second = try writeAudioFile(at: "second.wav", seconds: 5)
@@ -95,99 +130,6 @@ class NativeAudioPlayerLockScreenTests: PluginTestCase {
         XCTAssertEqual(info?[MPMediaItemPropertyTitle] as? String, "Title 2")
         XCTAssertEqual(info?[MPNowPlayingInfoPropertyPlaybackRate] as? Double, 0.0)
         XCTAssertEqual(info?[MPNowPlayingInfoPropertyElapsedPlaybackTime] as? Int, 0)
-    }
-
-    // MARK: - End of an item
-    //
-    // See AudioPlayerState in definitions.ts: an item that plays out reports completed, stays
-    // selected, and is rewound so a following play() starts it again rather than finding
-    // nothing left to play.
-
-    func testAnItemThatPlaysOutIsRewoundAndReported() throws {
-        let audio = try writeAudioFile(at: "played-out.wav", seconds: 5)
-        let player = NativeAudioPlayer([["id": "1", "audioUri": audio.absoluteString]])
-        var completed: [String] = []
-        player.onCompleted = { completed.append($0) }
-
-        XCTAssertTrue(player.load())
-        player.seekTo(4)
-        XCTAssertEqual(player.position, 4)
-
-        player.audioPlayerDidFinishPlaying(try XCTUnwrap(player.audioPlayer), successfully: true)
-
-        XCTAssertEqual(player.position, 0)
-        XCTAssertEqual(completed, ["1"])
-        XCTAssertEqual(player.currentId, "1")
-    }
-
-    func testAnItemThatFailedToPlayOutIsLeftAlone() throws {
-        let audio = try writeAudioFile(at: "failed.wav", seconds: 5)
-        let player = NativeAudioPlayer([["id": "1", "audioUri": audio.absoluteString]])
-        var completed: [String] = []
-        player.onCompleted = { completed.append($0) }
-
-        XCTAssertTrue(player.load())
-        player.seekTo(4)
-
-        player.audioPlayerDidFinishPlaying(try XCTUnwrap(player.audioPlayer), successfully: false)
-
-        // nothing played out, so there is nothing to report and nothing to rewind
-        XCTAssertEqual(player.position, 4)
-        XCTAssertTrue(completed.isEmpty)
-    }
-
-    // MARK: - Contract edges
-
-    func testSeekingPastTheEndStopsAtTheEnd() throws {
-        let audio = try writeAudioFile(at: "past-end.wav", seconds: 5)
-        let plugin = RecordingPlugin()
-
-        plugin.start(CallRecorder().makeCall(["items": [item(id: "1", audio: audio)]]))
-        plugin.seekTo(CallRecorder().makeCall(["position": 99]))
-
-        // AVAudioPlayer does not keep a position past the end, so an unclamped seek landed
-        // somewhere the player could not play from
-        let position = CallRecorder()
-        plugin.getPosition(position.makeCall())
-        XCTAssertEqual(position.resolved?["value"] as? Int, 5)
-    }
-
-    func testSeekingBeforeTheStartStopsAtTheStart() throws {
-        let audio = try writeAudioFile(at: "before-start.wav", seconds: 5)
-        let plugin = RecordingPlugin()
-
-        plugin.start(CallRecorder().makeCall(["items": [item(id: "1", audio: audio)]]))
-        plugin.seekTo(CallRecorder().makeCall(["position": -10]))
-
-        let position = CallRecorder()
-        plugin.getPosition(position.makeCall())
-        XCTAssertEqual(position.resolved?["value"] as? Int, 0)
-    }
-
-    func testSelectRejectsAnUnknownIdAndKeepsTheCurrentItem() throws {
-        let audio = try writeAudioFile(at: "select.wav")
-        let plugin = RecordingPlugin()
-        let recorder = CallRecorder()
-
-        plugin.start(CallRecorder().makeCall(["items": [item(id: "1", audio: audio)]]))
-        plugin.select(recorder.makeCall(["id": "does-not-exist"]))
-
-        // it used to resolve with the item the caller already had
-        XCTAssertEqual(recorder.rejected, "could not switch to item with given id")
-        XCTAssertFalse(plugin.states.contains("skip"))
-    }
-
-    func testPlayAfterStopRejects() throws {
-        let audio = try writeAudioFile(at: "after-stop.wav")
-        let plugin = RecordingPlugin()
-
-        plugin.start(CallRecorder().makeCall(["items": [item(id: "1", audio: audio)]]))
-        plugin.stop(CallRecorder().makeCall())
-
-        let recorder = CallRecorder()
-        plugin.play(recorder.makeCall())
-
-        XCTAssertEqual(recorder.rejected, "could not play without a loaded audio item")
     }
 
     func testStopClearsNowPlayingInfo() throws {
