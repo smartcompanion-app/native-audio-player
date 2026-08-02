@@ -239,8 +239,9 @@ public class NativeAudioPlayerPlugin extends Plugin {
         try {
             if (mediaController != null) {
                 // announced here rather than left to onIsPlayingChanged, which stays quiet when
-                // there was nothing playing to stop
-                pausedEventAlreadySent = true;
+                // there was nothing playing to stop -- and is only claimed when it will actually
+                // arrive, or the flag would outlive this and swallow the next real pause
+                pausedEventAlreadySent = mediaController.isPlaying();
                 notifyListeners(
                     "audioPlayerChange",
                     nativeAudioPlayer.preparePlayerEvent("paused", Objects.requireNonNull(mediaController.getCurrentMediaItem()))
@@ -464,7 +465,9 @@ public class NativeAudioPlayerPlugin extends Plugin {
             // resume. The pause is announced here rather than left to onIsPlayingChanged, which
             // stays quiet when there was nothing playing to stop.
             if (mediaController != null) {
-                pausedEventAlreadySent = true;
+                // only a player that is playing raises onIsPlayingChanged, so claiming the event
+                // otherwise leaves the flag set and swallows the next real pause
+                pausedEventAlreadySent = mediaController.isPlaying();
                 mediaController.pause();
                 notifyListeners(
                     "audioPlayerChange",
