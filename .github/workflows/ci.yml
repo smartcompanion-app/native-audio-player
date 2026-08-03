@@ -96,7 +96,7 @@ jobs:
       # Keyed on the playwright version, which is what decides the browser build --
       # a lockfile change that leaves playwright alone keeps the cached download.
       - name: Cache chromium
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         id: playwright-cache
         with:
           path: ~/.cache/ms-playwright
@@ -142,7 +142,7 @@ jobs:
         working-directory: ./example
       - name: Upload test logs
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: e2e-logs-browser
           path: example/logs/
@@ -208,7 +208,7 @@ jobs:
         working-directory: ./example
       - name: Upload test logs
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: e2e-logs-ios
           path: example/logs/
@@ -261,7 +261,7 @@ jobs:
       # package rather than in a home directory. Restoring it here -- after
       # npm ci, which would wipe it -- keeps that off the network.
       - name: Cache chromedriver
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: example/node_modules/appium-uiautomator2-driver/node_modules/appium-chromedriver/chromedriver
           key: chromedriver-${{ runner.os }}-${{ hashFiles('example/package-lock.json') }}
@@ -270,7 +270,7 @@ jobs:
       # The emulator only reuses a snapshot that was created with the same
       # options, so the key has to change when the workflow does.
       - name: Cache AVD snapshot
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         id: avd-cache
         with:
           path: |
@@ -301,7 +301,7 @@ jobs:
           working-directory: ./example
       - name: Upload test logs
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: e2e-logs-android
           path: example/logs/
