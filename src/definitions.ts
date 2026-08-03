@@ -166,8 +166,12 @@ export interface NativeAudioPlayerPlugin {
  * - `playing` -- playback started or resumed.
  * - `paused` -- playback stopped and the position was kept. Emitted for a
  *   {@link NativeAudioPlayerPlugin.pause} call that stopped something, for a
- *   {@link NativeAudioPlayerPlugin.stop} call whatever was happening, and for an output
- *   change, but never for an item that reached its end: that is `completed`.
+ *   {@link NativeAudioPlayerPlugin.stop} call whatever was happening, for an output change, and
+ *   for an interruption -- an incoming call, or another app taking the audio -- that stopped
+ *   something, but never for an item that reached its end: that is `completed`. The player is
+ *   not started again when an interruption ends, and nothing is reported then, so an app that
+ *   wants to carry on has to call {@link NativeAudioPlayerPlugin.play} itself. Interruptions
+ *   are not reported on the web, where the browser exposes nothing to observe them with.
  * - `skip` -- the selected item changed through {@link NativeAudioPlayerPlugin.next},
  *   {@link NativeAudioPlayerPlugin.previous} or {@link NativeAudioPlayerPlugin.select}. The new
  *   item is selected but not playing, so it takes a {@link NativeAudioPlayerPlugin.play} to

@@ -10,6 +10,13 @@ import UIKit
     var currentIndex: Int = 0
     var earpiece: Bool = true
 
+    /// Whether playback was asked for, which is not the same as whether it is happening.
+    ///
+    /// The system stops the player before it delivers an interruption, so `isPlaying` reads
+    /// false by the time the notification arrives and cannot say whether anything was actually
+    /// interrupted. This is the answer to that question, and nothing else should be read for it.
+    var playWhenReady: Bool = false
+
     // the item currentIndex points at, or nil while the playlist is empty --
     // everything below reads through this so an unset playlist cannot trap
     var currentItem: AudioPlayerItem? {
@@ -42,6 +49,10 @@ import UIKit
     var onCompleted: ((_ id: String) -> Void)?
 
     var onAudioOutputChanged: ((_ output: String) -> Void)?
+
+    /// Called when something outside the app stopped playback that was running -- an incoming
+    /// call, Siri, or another app taking the audio session.
+    var onInterrupted: (() -> Void)?
 
     /// The output the session is routed to right now, which is not necessarily the one that
     /// was requested: the earpiece/speaker override is skipped while an external device is
@@ -165,6 +176,7 @@ import UIKit
             try audioSession.setActive(true, options: .notifyOthersOnDeactivation)
 
             audioPlayer?.stop()
+            playWhenReady = false
             audioPlayer = try AVAudioPlayer(contentsOf: url)
             audioPlayer?.prepareToPlay()
             audioPlayer?.delegate = self
@@ -185,6 +197,7 @@ import UIKit
     func stop() {
         audioPlayer?.stop()
         audioPlayer = nil
+        playWhenReady = false
 
         // remove player from lock screen
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
@@ -193,12 +206,18 @@ import UIKit
 
     func play() {
         if audioPlayer?.isPlaying == false {
+            playWhenReady = true
             audioPlayer?.play()
             updateLockScreen()
         }
     }
 
     func pause() {
+        // outside the guard: a player the system already stopped is still one nobody is asking
+        // to play, and leaving this set would have the next interruption report a pause that
+        // interrupted nothing
+        playWhenReady = false
+
         if audioPlayer?.isPlaying == true {
             audioPlayer?.pause()
             updateLockScreen()
@@ -321,6 +340,10 @@ import UIKit
 
     public func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
         if flag {
+            // the item ran out, so nothing is asking for playback any more -- left set, the
+            // next interruption would report a pause that interrupted nothing
+            playWhenReady = false
+
             // an item that played out has to be ready to play again, rather than parked at its
             // end where play() would have nothing left to play -- see AudioPlayerState in
             // definitions.ts. This also puts the lock screen back to the start of the item.

@@ -49,9 +49,13 @@ public class NativeAudioPlayerPlugin: CAPPlugin, CAPBridgedPlugin {
         player.onAudioOutputChanged = { [weak self] output in
             self?.onAudioOutputChanged(output)
         }
+        player.onInterrupted = { [weak self] in
+            self?.onInterrupted()
+        }
 
         if player.load() {
             player.observeAudioOutput()
+            player.observeInterruptions()
 
             let commandCenter = MPRemoteCommandCenter.shared()
 
@@ -352,6 +356,15 @@ extension NativeAudioPlayerPlugin {
         } else {
             return false
         }
+    }
+
+    /// Reports the playback the system stopped on the app's behalf.
+    ///
+    /// The player half of this is already done by the time it gets here, so this only announces
+    /// it -- going through onPause() would pause a player that is not running and report a
+    /// change that did not happen.
+    private func onInterrupted() {
+        self.notifyListeners("audioPlayerChange", data: ["id": player.currentId, "state": "paused"])
     }
 
     private func onCompleted(_ id: String) {

@@ -185,6 +185,7 @@ that actually happened, so a call that changes nothing stays silent.
 | An item reaches its end | `completed` | | The player stops, the item stays selected and position is set to 0. (no separate pause event) |
 | `NativeAudioPlayer.setEarpiece` `NativeAudioPlayer.setSpeaker` | `paused` | `earpiece` `speaker` | Only overrides the built-in output, and does nothing audible while headphones or Bluetooth are connected — the output event then keeps reporting `external` |
 | The user plugs in headphones, connects Bluetooth, or unplugs them | `paused` | `external` `earpiece` `speaker` | Playback always stops, so audio meant for the earpiece cannot carry on out loud through a different output. |
+| An incoming call, Siri, or another app takes the audio | `paused` | | Playback stops and stays stopped when the interruption ends — nothing is reported then, so call `play()` to carry on. Reported only when something was playing, and not reported on the web |
 
 Notes on the events themselves:
 
@@ -194,7 +195,10 @@ Notes on the events themselves:
   guaranteed to be the same on both platforms — treat them as two reports of one event, not a
   sequence.
 - Every event reports playback moving, whoever moved it: a call on this plugin, a lock screen
-  or notification control, a headset button, or the audio running out.
+  or notification control, a headset button, the audio running out, or the system stopping it
+  for something else.
+- The player is never started again on its own. Whatever stopped it — an output change or an
+  interruption — resuming is the app's decision, made by calling `play()`.
 
 ## Other Audio Player Plugins
 
@@ -565,8 +569,12 @@ state below behaves the same way on iOS, Android and the web.
 - `playing` -- playback started or resumed.
 - `paused` -- playback stopped and the position was kept. Emitted for a
   {@link NativeAudioPlayerPlugin.pause} call that stopped something, for a
-  {@link NativeAudioPlayerPlugin.stop} call whatever was happening, and for an output
-  change, but never for an item that reached its end: that is `completed`.
+  {@link NativeAudioPlayerPlugin.stop} call whatever was happening, for an output change, and
+  for an interruption -- an incoming call, or another app taking the audio -- that stopped
+  something, but never for an item that reached its end: that is `completed`. The player is
+  not started again when an interruption ends, and nothing is reported then, so an app that
+  wants to carry on has to call {@link NativeAudioPlayerPlugin.play} itself. Interruptions
+  are not reported on the web, where the browser exposes nothing to observe them with.
 - `skip` -- the selected item changed through {@link NativeAudioPlayerPlugin.next},
   {@link NativeAudioPlayerPlugin.previous} or {@link NativeAudioPlayerPlugin.select}. The new
   item is selected but not playing, so it takes a {@link NativeAudioPlayerPlugin.play} to

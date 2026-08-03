@@ -199,4 +199,89 @@ class NativeAudioPlayerTests: PluginTestCase {
 
         XCTAssertEqual(reported.count, 2)
     }
+
+    // An interruption -- an incoming call, Siri, or another app taking the audio session --
+    // stops playback and is reported as a pause. It is never resumed on its own, see
+    // AudioPlayerState in definitions.ts.
+
+    private func postInterruption(_ type: AVAudioSession.InterruptionType, options: AVAudioSession.InterruptionOptions = []) {
+        NotificationCenter.default.post(
+            name: AVAudioSession.interruptionNotification,
+            object: AVAudioSession.sharedInstance(),
+            userInfo: [
+                AVAudioSessionInterruptionTypeKey: type.rawValue,
+                AVAudioSessionInterruptionOptionKey: options.rawValue
+            ]
+        )
+    }
+
+    func testAnInterruptionReportsThePlaybackItStopped() throws {
+        let audio = try writeAudioFile(at: "interrupted.wav", seconds: 5)
+        let player = NativeAudioPlayer([["id": "1", "audioUri": audio.absoluteString]])
+        var interruptions = 0
+        player.onInterrupted = { interruptions += 1 }
+
+        XCTAssertTrue(player.load())
+        player.observeInterruptions()
+        player.play()
+        XCTAssertTrue(player.playWhenReady)
+
+        postInterruption(.began)
+
+        XCTAssertEqual(interruptions, 1)
+        XCTAssertFalse(player.playWhenReady)
+        XCTAssertEqual(player.audioPlayer?.isPlaying, false)
+    }
+
+    func testAnInterruptionOfAPausedPlayerReportsNothing() throws {
+        let audio = try writeAudioFile(at: "not-playing.wav", seconds: 5)
+        let player = NativeAudioPlayer([["id": "1", "audioUri": audio.absoluteString]])
+        var interruptions = 0
+        player.onInterrupted = { interruptions += 1 }
+
+        XCTAssertTrue(player.load())
+        player.observeInterruptions()
+
+        // nothing was playing, so nothing was interrupted -- a state is reported per change,
+        // and this one changed nothing
+        postInterruption(.began)
+
+        XCTAssertEqual(interruptions, 0)
+    }
+
+    func testAnInterruptionThatEndsDoesNotResume() throws {
+        let audio = try writeAudioFile(at: "resumable.wav", seconds: 5)
+        let player = NativeAudioPlayer([["id": "1", "audioUri": audio.absoluteString]])
+        var interruptions = 0
+        player.onInterrupted = { interruptions += 1 }
+
+        XCTAssertTrue(player.load())
+        player.observeInterruptions()
+        player.play()
+
+        postInterruption(.began)
+        // the system asks for playback back, and is deliberately not given it -- resuming is
+        // left to the app, the way it is for an output change
+        postInterruption(.ended, options: .shouldResume)
+
+        XCTAssertEqual(interruptions, 1)
+        XCTAssertFalse(player.playWhenReady)
+        XCTAssertEqual(player.audioPlayer?.isPlaying, false)
+    }
+
+    func testANotificationWithoutAnInterruptionTypeIsIgnored() throws {
+        let audio = try writeAudioFile(at: "malformed.wav", seconds: 5)
+        let player = NativeAudioPlayer([["id": "1", "audioUri": audio.absoluteString]])
+        var interruptions = 0
+        player.onInterrupted = { interruptions += 1 }
+
+        XCTAssertTrue(player.load())
+        player.observeInterruptions()
+        player.play()
+
+        NotificationCenter.default.post(name: AVAudioSession.interruptionNotification, object: nil)
+
+        XCTAssertEqual(interruptions, 0)
+        XCTAssertTrue(player.playWhenReady)
+    }
 }
