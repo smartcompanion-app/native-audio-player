@@ -75,7 +75,7 @@ public class AudioPlayerService extends MediaSessionService {
     public AudioAttributes getAudioAttributes(String channel) {
         AudioAttributes.Builder builder = new AudioAttributes.Builder().setContentType(C.AUDIO_CONTENT_TYPE_MUSIC);
 
-        if (channel.equals("earpiece")) {
+        if (NativeAudioPlayer.OUTPUT_EARPIECE.equals(channel)) {
             builder.setUsage(C.USAGE_VOICE_COMMUNICATION);
         } else {
             builder.setUsage(C.USAGE_MEDIA);
@@ -115,7 +115,12 @@ public class AudioPlayerService extends MediaSessionService {
     @Override
     public void onCreate() {
         super.onCreate();
-        mediaSession = new MediaSession.Builder(this, getPlayer("speaker")).setCallback(mediaSessionCallback).build();
+        // the speaker is the default output, the same one NativeAudioPlayerPlugin#requestedChannel
+        // starts on -- the two have to agree, or getAudioOutput() reports a channel the player
+        // is not actually on
+        mediaSession = new MediaSession.Builder(this, getPlayer(NativeAudioPlayer.OUTPUT_SPEAKER))
+            .setCallback(mediaSessionCallback)
+            .build();
     }
 
     @Override

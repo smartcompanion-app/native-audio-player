@@ -464,6 +464,24 @@ public class NativeAudioPlayerPluginTest {
         Assert.assertNull(plugin.mediaController);
     }
 
+    // The built-in output starts on the speaker, the same one iOS starts on. Audio a listener
+    // has not asked to keep private has to be audible without holding the phone to an ear, and
+    // the same app must not sound different on the two platforms.
+
+    @Test
+    public void testTheOutputStartsOnTheSpeaker() {
+        Assert.assertEquals(NativeAudioPlayer.OUTPUT_SPEAKER, plugin.requestedChannel);
+    }
+
+    @Test
+    public void testGetAudioOutputReportsTheSpeakerBeforeAnyChannelWasRequested() throws Exception {
+        PluginCall call = call();
+
+        plugin.getAudioOutput(call);
+
+        Assert.assertEquals(NativeAudioPlayer.OUTPUT_SPEAKER, assertResolved(call).getString("output"));
+    }
+
     @Test
     public void testAnOutputChangePausesPlayback() {
         MediaController controller = mock(MediaController.class);

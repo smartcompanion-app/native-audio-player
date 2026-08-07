@@ -175,6 +175,38 @@ class NativeAudioPlayerTests: PluginTestCase {
         XCTAssertNil(MPNowPlayingInfoCenter.default().nowPlayingInfo)
     }
 
+    // The built-in output starts on the speaker, the same one Android starts on. Audio a
+    // listener has not asked to keep private has to be audible without holding the phone to an
+    // ear, and the same app must not sound different on the two platforms.
+    //
+    // Which port the audio actually lands on is not visible here: the simulator reports
+    // `speaker` for both settings, so a route assertion would pass against either default.
+    // That part belongs on a device.
+
+    func testTheOutputStartsOnTheSpeaker() {
+        XCTAssertFalse(makePlayer().earpiece)
+        XCTAssertFalse(NativeAudioPlayer([]).earpiece)
+    }
+
+    func testAFailedLoadLeavesTheConfiguredOutputAlone() {
+        let player = NativeAudioPlayer([["id": "1", "audioUri": "file:///nothing/here.wav"]])
+
+        XCTAssertFalse(player.load())
+
+        // the retry that used to be here flipped the player to the earpiece and left it there,
+        // so the next item that did load played out of it
+        XCTAssertFalse(player.earpiece)
+    }
+
+    func testAFailedLoadLeavesAnEarpieceRequestAlone() {
+        let player = NativeAudioPlayer([["id": "1", "audioUri": "file:///nothing/here.wav"]])
+        player.earpiece = true
+
+        XCTAssertFalse(player.load())
+
+        XCTAssertTrue(player.earpiece)
+    }
+
     func testAudioOutputMapsTheBuiltInPorts() {
         XCTAssertEqual(NativeAudioPlayer.audioOutput(for: .builtInReceiver), "earpiece")
         XCTAssertEqual(NativeAudioPlayer.audioOutput(for: .builtInSpeaker), "speaker")
