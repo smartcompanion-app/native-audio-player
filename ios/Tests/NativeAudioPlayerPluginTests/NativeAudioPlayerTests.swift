@@ -269,6 +269,27 @@ class NativeAudioPlayerTests: PluginTestCase {
         XCTAssertEqual(player.audioPlayer?.isPlaying, false)
     }
 
+    /// Only that play() still starts the player once the session was taken away. Whether the
+    /// audio is actually audible is not something a test can see: AVAudioPlayer runs its clock
+    /// on an inactive session too, so isPlaying and the position read the same either way, and
+    /// there is no way to ask a session whether it is active. The simulator has no audio output
+    /// to listen to in the first place -- that part belongs on a device.
+    func testPlayStartsThePlayerAfterTheSessionWasDeactivated() throws {
+        let audio = try writeAudioFile(at: "deactivated.wav", seconds: 5)
+        let player = NativeAudioPlayer([["id": "1", "audioUri": audio.absoluteString]])
+
+        XCTAssertTrue(player.load())
+
+        // what an interruption leaves behind when the reactivation at the end of it did not
+        // get the session back
+        try AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+
+        player.play()
+
+        XCTAssertEqual(player.audioPlayer?.isPlaying, true)
+        XCTAssertTrue(player.playWhenReady)
+    }
+
     func testANotificationWithoutAnInterruptionTypeIsIgnored() throws {
         let audio = try writeAudioFile(at: "malformed.wav", seconds: 5)
         let player = NativeAudioPlayer([["id": "1", "audioUri": audio.absoluteString]])

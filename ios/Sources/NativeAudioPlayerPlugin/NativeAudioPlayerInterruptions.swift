@@ -30,11 +30,11 @@ extension NativeAudioPlayer {
         case .began:
             interruptionBegan()
         case .ended:
-            // the interruption deactivated the session and play() does not activate one, so
-            // without this the next play() moves the playhead in silence. The .shouldResume
-            // hint is deliberately ignored: playback is not resumed on its own, see
-            // AudioPlayerState in definitions.ts.
-            try? AVAudioSession.sharedInstance().setActive(true, options: .notifyOthersOnDeactivation)
+            // the interruption deactivated the session, so it is taken back here rather than
+            // left for whenever the app plays again. play() asks for it too, in case this did
+            // not get it. The .shouldResume hint is deliberately ignored: playback is not
+            // resumed on its own, see AudioPlayerState in definitions.ts.
+            try? AVAudioSession.sharedInstance().setActive(true)
         @unknown default:
             break
         }

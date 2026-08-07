@@ -172,8 +172,9 @@ import UIKit
                 )
             }
 
-            // set active as last
-            try audioSession.setActive(true, options: .notifyOthersOnDeactivation)
+            // set active as last. No options: .notifyOthersOnDeactivation is what its name says,
+            // and only means anything when deactivating -- see stop().
+            try audioSession.setActive(true)
 
             audioPlayer?.stop()
             playWhenReady = false
@@ -206,6 +207,14 @@ import UIKit
 
     func play() {
         if audioPlayer?.isPlaying == false {
+            // load() activates the session, but it can have been deactivated since: an
+            // interruption does that, and the reactivation when it ends fails while the app
+            // that interrupted still holds the session. AVAudioPlayer does not activate one
+            // for itself -- it runs its clock either way, so the failure is silent playback
+            // rather than a play() that reports anything. Activating an active session costs
+            // nothing, so this asks every time rather than trying to work out when it matters.
+            try? AVAudioSession.sharedInstance().setActive(true)
+
             playWhenReady = true
             audioPlayer?.play()
             updateLockScreen()
