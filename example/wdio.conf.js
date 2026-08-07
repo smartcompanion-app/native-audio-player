@@ -108,6 +108,12 @@ export const config = {
   connectionRetryTimeout: 600000,
   connectionRetryCount: 3,
 
+  // One spec file at a time. wdio otherwise runs them in parallel, and a native run has a
+  // single emulator or simulator to drive -- the second session lands on a device that is
+  // still being set up by the first and fails to start at all. The browser run has no such
+  // limit to hit, but it only ever gets the one contract suite anyway.
+  maxInstances: 1,
+
   // The boundary spec plays an item out and then waits to see that it stays stopped, which
   // is longer than mocha's own default allows for.
   mochaOpts: {
