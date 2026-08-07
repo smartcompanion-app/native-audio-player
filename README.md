@@ -1,9 +1,11 @@
 # native-audio-player
 
-> Play native audio from a Capacitor app.
+> Play native audio from a Capacitor app — in the background, from the lock screen, through the earpiece or the speaker.
 
 [![npm version](https://img.shields.io/npm/v/@smartcompanion/native-audio-player.svg)](https://www.npmjs.com/package/@smartcompanion/native-audio-player)
+[![npm downloads](https://img.shields.io/npm/dm/@smartcompanion/native-audio-player.svg)](https://www.npmjs.com/package/@smartcompanion/native-audio-player)
 [![CI](https://github.com/smartcompanion-app/native-audio-player/actions/workflows/ci.yml/badge.svg)](https://github.com/smartcompanion-app/native-audio-player/actions/workflows/ci.yml)
+[![platforms](https://img.shields.io/badge/platforms-iOS%20%7C%20Android%20%7C%20Web-lightgrey.svg)](#requirements)
 [![license](https://img.shields.io/npm/l/@smartcompanion/native-audio-player.svg)](LICENSE)
 
 ## ✨ Features
@@ -11,6 +13,7 @@
  - 🔈 Toggle between `Speaker` and `Earpiece` as audio output
  - 🎶 Audio keeps playing in the background, when app is minimized
  - 🔓 Native players in notifications and lock screens
+ - 📞 Stops for calls, Siri and headphones being unplugged — and tells the app, so its UI never drifts out of sync
  - 📱 Support for Android, iOS, Web (only Speaker)
 
 ## Maintainers
@@ -160,6 +163,9 @@ so keep the files flat in `Directory.Data` rather than in sub-folders.
   they are resolved is up to the player, so compare them with a tolerance.
 - `setEarpiece()` / `setSpeaker()` only override the built-in output. When
   headphones or Bluetooth are connected, that route stays untouched.
+- The player never starts itself again. Whatever stopped it — an output change,
+  an incoming call, another app taking the audio — resuming is your decision,
+  made by calling `play()` from the `audioPlayerChange` listener.
 
 In folder `./example` a full usage example is available. This example is also used for automated and manual testing.
 
