@@ -1,0 +1,176 @@
+<!doctype html>
+<!--
+  Source for docs/social-preview.png, the repository's social preview card -- the image GitHub
+  puts on the link when the repo is shared. Set it under Settings -> General -> Social preview,
+  which is the only way: there is no API for it.
+
+  The crop offsets below are measured against docs/native-audio-player.png (1080x2424) and only
+  hold for that file. Re-render at 1280x640 after editing:
+
+    node -e '
+      const { chromium } = require("playwright");
+      (async () => {
+        const b = await chromium.launch();
+        const p = await b.newPage({ viewport: { width: 1280, height: 640 } });
+        await p.goto("file://" + process.cwd() + "/docs/social-preview.html");
+        await p.screenshot({ path: "docs/social-preview.png" });
+        await b.close();
+      })();
+    '
+
+  Render at deviceScaleFactor 1: GitHub rejects anything over 1MB, and a 2x render of this card
+  is about 1.2MB.
+-->
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        width: 1280px;
+        height: 640px;
+      }
+
+      body {
+        display: flex;
+        align-items: center;
+        gap: 56px;
+        padding: 0 64px;
+        background:
+          radial-gradient(900px 620px at 88% 42%, rgba(245, 205, 140, 0.2), transparent 62%),
+          radial-gradient(700px 520px at 6% 92%, rgba(245, 205, 140, 0.07), transparent 60%), #08070a;
+        font-family: -apple-system, 'SF Pro Display', 'Helvetica Neue', Arial, sans-serif;
+        color: #f6f1e8;
+        overflow: hidden;
+      }
+
+      .left {
+        width: 640px;
+        flex: none;
+      }
+
+      .eyebrow {
+        font-size: 21px;
+        font-weight: 600;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: #f3cf92;
+        margin-bottom: 22px;
+      }
+
+      h1 {
+        font-family: 'SF Mono', Menlo, ui-monospace, monospace;
+        font-size: 53px;
+        font-weight: 700;
+        letter-spacing: -0.032em;
+        line-height: 1.05;
+        white-space: nowrap;
+        margin-bottom: 24px;
+      }
+
+      .tagline {
+        font-size: 27px;
+        line-height: 1.42;
+        color: #c3bcb1;
+        margin-bottom: 38px;
+        max-width: 610px;
+      }
+
+      ul {
+        list-style: none;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 11px;
+        margin-bottom: 40px;
+      }
+
+      li {
+        font-size: 20px;
+        font-weight: 500;
+        padding: 11px 19px;
+        border: 1px solid rgba(243, 207, 146, 0.32);
+        border-radius: 999px;
+        background: rgba(243, 207, 146, 0.075);
+        color: #efe4d1;
+      }
+
+      .platforms {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        font-size: 23px;
+        font-weight: 600;
+        color: #8d867c;
+      }
+      .platforms b {
+        color: #f6f1e8;
+        font-weight: 600;
+      }
+      .dot {
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: #4d4842;
+      }
+
+      /* the media notification, cropped out of the Android screenshot */
+      .shot {
+        position: relative;
+        width: 452px;
+        height: 210px;
+        flex: none;
+        border-radius: 24px;
+        overflow: hidden;
+        box-shadow:
+          0 40px 90px rgba(0, 0, 0, 0.66),
+          0 0 0 1px rgba(246, 241, 232, 0.1);
+        transform: rotate(-2.1deg);
+      }
+      .shot img {
+        position: absolute;
+        /* 1080x2424 source scaled so the media card exactly fills this box */
+        width: 491px;
+        left: -19px;
+        top: -245px;
+      }
+
+      .glow {
+        position: absolute;
+        width: 560px;
+        height: 560px;
+        right: -120px;
+        top: 40px;
+        background: radial-gradient(circle, rgba(243, 207, 146, 0.19), transparent 66%);
+        filter: blur(26px);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="glow"></div>
+
+    <div class="left">
+      <div class="eyebrow">Capacitor Plugin</div>
+      <h1>native-audio-player</h1>
+      <p class="tagline">
+        Native audio playback that keeps going when the app does not — and tells you every time the system moves it.
+      </p>
+      <ul>
+        <li>Background playback</li>
+        <li>Lock screen &amp; notification</li>
+        <li>Playlists</li>
+        <li>Earpiece / Speaker</li>
+      </ul>
+      <div class="platforms"><b>iOS</b><span class="dot"></span><b>Android</b><span class="dot"></span><b>Web</b></div>
+    </div>
+
+    <div class="shot">
+      <img src="native-audio-player.png" alt="" />
+    </div>
+  </body>
+</html>

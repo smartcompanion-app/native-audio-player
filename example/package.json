@@ -1,6 +1,7 @@
 {
   "name": "capacitor-example-app",
   "description": "Usage Example Native Audio Player",
+  "private": true,
   "main": "index.js",
   "type": "module",
   "keywords": [

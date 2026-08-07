@@ -45,7 +45,9 @@ Run the web implementation's tests on their own. See [Web](#web) below.
 
 Check formatting and code quality, autoformat/autofix if possible.
 
-This template is integrated with ESLint, Prettier, and SwiftLint. Using these tools is completely optional, but the [Capacitor Community](https://github.com/capacitor-community/) strives to have consistent code style and structure for easier cooperation.
+ESLint and Prettier cover the TypeScript and JavaScript, SwiftLint the Swift, and Prettier the Java through [`prettier-plugin-java`](https://github.com/jhipster/prettier-java). None of it is optional: `Lint` is a required check on `main`, and the pre-commit hook formats staged files so the Prettier half of it cannot fail there.
+
+ESLint and TypeScript are deliberately held back — see the note in [CLAUDE.md](CLAUDE.md) — so a version bump on either is a migration rather than a dependency update.
 
 > **Note**: SwiftLint is not installed by npm — the `swiftlint` package only looks for a binary on your `PATH`. CI uses whatever version ships with the GitHub runner image, so lint results can differ between your machine and CI.
 

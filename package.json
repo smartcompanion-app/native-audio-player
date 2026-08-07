@@ -1,7 +1,7 @@
 {
   "name": "@smartcompanion/native-audio-player",
   "version": "0.5.0",
-  "description": "Play Native Audio from a Capacitor App",
+  "description": "Capacitor plugin for native audio playback: background playback, lock screen and notification controls, playlists, and earpiece/speaker routing on iOS, Android and the web.",
   "main": "dist/plugin.cjs.js",
   "module": "dist/esm/index.js",
   "types": "dist/esm/index.d.ts",
@@ -12,7 +12,6 @@
     "dist/",
     "ios/Sources",
     "ios/Tests",
-    "ios/Plugin/",
     "Package.swift",
     "SmartcompanionNativeAudioPlayer.podspec"
   ],
@@ -25,11 +24,26 @@
   "bugs": {
     "url": "https://github.com/smartcompanion-app/native-audio-player/issues"
   },
+  "homepage": "https://github.com/smartcompanion-app/native-audio-player#readme",
   "keywords": [
     "capacitor",
+    "capacitor-plugin",
+    "ionic",
     "plugin",
     "native",
-    "audio-player"
+    "audio",
+    "audio-player",
+    "background-audio",
+    "media-session",
+    "lock-screen",
+    "playlist",
+    "earpiece",
+    "speaker",
+    "exoplayer",
+    "media3",
+    "avaudioplayer",
+    "ios",
+    "android"
   ],
   "scripts": {
     "verify": "npm run verify:ios && npm run verify:android && npm run verify:web",
