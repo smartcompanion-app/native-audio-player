@@ -191,6 +191,10 @@ export type AudioPlayerState = 'playing' | 'paused' | 'skip' | 'completed';
  * case whenever an external device such as headphones or a bluetooth speaker is connected.
  * The earpiece and speaker settings do not apply while an external device is in use, so
  * neither value would describe what is actually heard.
+ *
+ * The built-in output starts on the `speaker` on both platforms, so audio a listener has not
+ * asked to keep private is audible without holding the phone to an ear.
+ * {@link NativeAudioPlayerPlugin.setEarpiece} is what opts into the earpiece.
  */
 export type AudioOutput = 'earpiece' | 'speaker' | 'external';
 

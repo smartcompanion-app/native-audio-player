@@ -183,7 +183,7 @@ that actually happened, so a call that changes nothing stays silent.
 | `NativeAudioPlayer.select` | `skip` | | The item is select (reject if selected id is not existing).  The position is set to 0 and playing is not started. |
 | `NativeAudioPlayer.stop` | `paused` | | Clears the playlist. Start is required before the audio player is usable again. |
 | An item reaches its end | `completed` | | The player stops, the item stays selected and position is set to 0. (no separate pause event) |
-| `NativeAudioPlayer.setEarpiece` `NativeAudioPlayer.setSpeaker` | `paused` | `earpiece` `speaker` | Only overrides the built-in output, and does nothing audible while headphones or Bluetooth are connected — the output event then keeps reporting `external` |
+| `NativeAudioPlayer.setEarpiece` `NativeAudioPlayer.setSpeaker` | `paused` | `earpiece` `speaker` | Only overrides the built-in output, and does nothing audible while headphones or Bluetooth are connected — the output event then keeps reporting `external`. The built-in output starts on the speaker on both platforms |
 | The user plugs in headphones, connects Bluetooth, or unplugs them | `paused` | `external` `earpiece` `speaker` | Playback always stops, so audio meant for the earpiece cannot carry on out loud through a different output. |
 | An incoming call, Siri, or another app takes the audio | `paused` | | Playback stops and stays stopped when the interruption ends — nothing is reported then, so call `play()` to carry on. Reported only when something was playing, and not reported on the web |
 
@@ -554,6 +554,10 @@ The audio output the player is routed to.
 case whenever an external device such as headphones or a bluetooth speaker is connected.
 The earpiece and speaker settings do not apply while an external device is in use, so
 neither value would describe what is actually heard.
+
+The built-in output starts on the `speaker` on both platforms, so audio a listener has not
+asked to keep private is audible without holding the phone to an ear.
+{@link NativeAudioPlayerPlugin.setEarpiece} is what opts into the earpiece.
 
 <code>'earpiece' | 'speaker' | 'external'</code>
 

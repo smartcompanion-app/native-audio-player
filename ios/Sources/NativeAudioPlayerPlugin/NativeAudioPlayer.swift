@@ -8,7 +8,13 @@ import UIKit
     var playerItems: [AudioPlayerItem] = []
     var audioPlayer: AVAudioPlayer?
     var currentIndex: Int = 0
-    var earpiece: Bool = true
+
+    /// Whether the built-in output is overridden to the earpiece rather than the speaker.
+    ///
+    /// The speaker is the default, as it is on Android: audio a listener has not asked to keep
+    /// private should be audible without holding the phone to an ear. The earpiece is what
+    /// `setEarpiece()` opts into.
+    var earpiece: Bool = false
 
     /// Whether playback was asked for, which is not the same as whether it is happening.
     ///
@@ -186,10 +192,11 @@ import UIKit
 
             return true
         } catch {
-            if !earpiece {
-                earpiece = true
-                return self.load()
-            }
+            // No retry on the other output. The one that used to be here ran whenever the
+            // player was on the speaker, which was the state setSpeaker() opted into and is
+            // now the default -- so every failed load flipped the player to the earpiece and
+            // left it there, and the next item that did load played out of it. A load that
+            // failed reports that it failed, and leaves the configured output alone.
         }
 
         return false
