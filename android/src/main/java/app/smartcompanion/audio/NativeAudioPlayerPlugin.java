@@ -149,8 +149,28 @@ public class NativeAudioPlayerPlugin extends Plugin {
             }
         }
 
+        /**
+         * Reports playback starting and stopping, whoever asked for it -- including the audio
+         * framework, which stops it when something else needs the audio.
+         */
         @Override
         public void onIsPlayingChanged(boolean isPlaying) {
+            MediaController controller = mediaController;
+
+            // an update can still be delivered once the controller is gone
+            if (controller == null) {
+                return;
+            }
+
+            // A transient focus loss -- an incoming call, or another app briefly taking the
+            // audio -- suppresses playback without clearing playWhenReady, so media3 starts
+            // again by itself once focus comes back. The plugin does not resume on its own, so
+            // the request to play is withdrawn here and the app decides. isPlaying already
+            // reads false, so this raises no second event of its own.
+            if (!isPlaying && controller.getPlaybackSuppressionReason() == Player.PLAYBACK_SUPPRESSION_REASON_TRANSIENT_AUDIO_FOCUS_LOSS) {
+                controller.pause();
+            }
+
             // the stop at an item boundary is reported as completed, by onPlayWhenReadyChanged
             // just above -- which the player delivers before this one for the same update
             if (!isPlaying && pausedEventAlreadySent) {
@@ -161,7 +181,7 @@ public class NativeAudioPlayerPlugin extends Plugin {
             try {
                 JSObject json = nativeAudioPlayer.preparePlayerEvent(
                     isPlaying ? "playing" : "paused",
-                    Objects.requireNonNull(mediaController.getCurrentMediaItem())
+                    Objects.requireNonNull(controller.getCurrentMediaItem())
                 );
                 notifyListeners("audioPlayerChange", json);
             } catch (Exception e) {

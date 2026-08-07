@@ -375,6 +375,68 @@ public class NativeAudioPlayerPluginTest {
         Assert.assertEquals("paused", recording.events.get(0).getString("state"));
     }
 
+    // An interruption -- an incoming call, or another app briefly taking the audio -- suppresses
+    // playback without clearing playWhenReady, so media3 would start again by itself once it has
+    // the focus back. The plugin does not resume on its own, see AudioPlayerState in
+    // definitions.ts, so the request to play has to be withdrawn.
+
+    @Test
+    public void testAnInterruptionWithdrawsTheRequestToPlay() {
+        MediaController controller = controllerWithCurrentItem("item1");
+        when(controller.getPlaybackSuppressionReason()).thenReturn(Player.PLAYBACK_SUPPRESSION_REASON_TRANSIENT_AUDIO_FOCUS_LOSS);
+        plugin.mediaController = controller;
+
+        plugin.playerListener.onIsPlayingChanged(false);
+
+        verify(controller).pause();
+    }
+
+    @Test
+    public void testAnInterruptionIsReportedAsAPause() {
+        RecordingPlugin recording = new RecordingPlugin();
+        MediaController controller = controllerWithCurrentItem("item1");
+        when(controller.getPlaybackSuppressionReason()).thenReturn(Player.PLAYBACK_SUPPRESSION_REASON_TRANSIENT_AUDIO_FOCUS_LOSS);
+        recording.mediaController = controller;
+
+        recording.playerListener.onIsPlayingChanged(false);
+
+        // one event for one transition -- withdrawing the request to play must not add a second
+        Assert.assertEquals(1, recording.events.size());
+        Assert.assertEquals("paused", recording.events.get(0).getString("state"));
+        Assert.assertEquals("item1", recording.events.get(0).getString("id"));
+    }
+
+    @Test
+    public void testAnOrdinaryPauseIsNotWithdrawnAgain() {
+        MediaController controller = controllerWithCurrentItem("item1");
+        when(controller.getPlaybackSuppressionReason()).thenReturn(Player.PLAYBACK_SUPPRESSION_REASON_NONE);
+        plugin.mediaController = controller;
+
+        plugin.playerListener.onIsPlayingChanged(false);
+
+        verify(controller, never()).pause();
+    }
+
+    @Test
+    public void testPlaybackStartingIsNotWithdrawn() {
+        MediaController controller = controllerWithCurrentItem("item1");
+        when(controller.getPlaybackSuppressionReason()).thenReturn(Player.PLAYBACK_SUPPRESSION_REASON_TRANSIENT_AUDIO_FOCUS_LOSS);
+        plugin.mediaController = controller;
+
+        plugin.playerListener.onIsPlayingChanged(true);
+
+        verify(controller, never()).pause();
+    }
+
+    @Test
+    public void testAPlaybackChangeWithoutAControllerIsIgnored() {
+        plugin.mediaController = null;
+
+        // an update can still be delivered once the controller is gone -- this used to
+        // dereference it and throw into the catch below
+        plugin.playerListener.onIsPlayingChanged(false);
+    }
+
     // A second start() used to leave the previous listener attached, so every
     // audioPlayerChange event was delivered twice.
 
