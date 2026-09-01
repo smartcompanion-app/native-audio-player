@@ -57,7 +57,7 @@ jobs:
       # request would sit with no CI checks and main's required checks could
       # never pass on it. Falls back to GITHUB_TOKEN when the secret is absent.
       - name: Create release pull request or publish
-        uses: changesets/action@v1
+        uses: changesets/action@v2
         with:
           github-token: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
           version: npm run version
