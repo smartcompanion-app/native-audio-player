@@ -73,14 +73,14 @@
     "@capacitor/core": "^8.4.2",
     "@capacitor/docgen": "^0.3.1",
     "@capacitor/ios": "^8.4.2",
-    "@changesets/changelog-github": "^0.7.0",
-    "@changesets/cli": "^2.31.1",
-    "@ionic/eslint-config": "^0.4.0",
+    "@changesets/changelog-github": "^1.0.1",
+    "@changesets/cli": "^3.0.3",
+    "@ionic/eslint-config": "^0.5.0",
     "@ionic/prettier-config": "^4.0.0",
     "@ionic/swiftlint-config": "^2.0.0",
     "@types/node": "^26.1.1",
-    "@vitest/browser": "^4.1.10",
-    "@vitest/browser-playwright": "^4.1.10",
+    "@vitest/browser": "^5.0.2",
+    "@vitest/browser-playwright": "^5.0.2",
     "eslint": "^8.57.1",
     "husky": "^9.1.7",
     "lint-staged": "^17.2.0",
@@ -91,7 +91,7 @@
     "rollup": "^4.62.2",
     "swiftlint": "^2.0.0",
     "typescript": "^5.9.3",
-    "vitest": "^4.1.10"
+    "vitest": "^5.0.2"
   },
   "peerDependencies": {
     "@capacitor/core": ">=8.0.0"
