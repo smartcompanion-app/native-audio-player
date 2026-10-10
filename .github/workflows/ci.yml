@@ -297,7 +297,10 @@ jobs:
           force-avd-creation: false
           emulator-options: -no-snapshot-save ${{ env.EMULATOR_OPTIONS }}
           disable-animations: true
-          script: npm run test:android
+          # logcat is the only place a native failure shows up -- the Appium
+          # log just reports a webview that never got anywhere. The runner
+          # runs each script line in its own shell, so this has to be one line.
+          script: mkdir -p logs && adb logcat -c && (adb logcat -v threadtime > logs/logcat.txt &) && npm run test:android; status=$?; sleep 2; exit $status
           working-directory: ./example
       - name: Upload test logs
         if: always()
