@@ -2,6 +2,9 @@
 dist
 node_modules
 
+# Vitest browser mode failure screenshots
+.vitest
+
 # iOS files
 Pods
 Podfile.lock
