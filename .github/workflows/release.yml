@@ -49,7 +49,7 @@ jobs:
 
       # Opens (or updates) a "chore: release" pull request collecting the
       # pending changesets. Merging that PR runs this workflow again, at which
-      # point there are no changesets left and `publish` runs instead.
+      # point there are no changesets left and `publish-script` runs instead.
       #
       # RELEASE_TOKEN is a personal access token with contents and pull request
       # write access. It is optional but recommended: pull requests opened with
@@ -57,14 +57,17 @@ jobs:
       # request would sit with no CI checks and main's required checks could
       # never pass on it. Falls back to GITHUB_TOKEN when the secret is absent.
       - name: Create release pull request or publish
-        uses: changesets/action@v1
+        uses: changesets/action@v2
         with:
           github-token: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
-          version: npm run version
-          publish: npm run release
-          title: 'chore: release'
-          commit: 'chore: release'
+          version-script: npm run version
+          publish-script: npm run release
+          pr-title: 'chore: release'
+          commit-message: 'chore: release'
         env:
+          # The action itself only takes the token through `github-token`; this
+          # is for @changesets/changelog-github, which `npm run version` runs
+          # and which reads GITHUB_TOKEN from the environment.
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
           # npm authenticates over OIDC against the trusted publisher
           # configured for this package (this repository, this workflow file),
