@@ -13,7 +13,6 @@ import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.session.MediaSession;
 import androidx.media3.session.MediaSessionService;
 import androidx.media3.session.SessionCommand;
-import androidx.media3.session.SessionCommands;
 import androidx.media3.session.SessionResult;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -28,14 +27,26 @@ public class AudioPlayerService extends MediaSessionService {
         @NonNull
         @Override
         public MediaSession.ConnectionResult onConnect(@NonNull MediaSession session, @NonNull MediaSession.ControllerInfo controller) {
-            MediaSession.ConnectionResult connectionResult = MediaSession.Callback.super.onConnect(session, controller);
+            // Not super.onConnect(): since media3 1.11 that returns a placeholder with no
+            // commands at all, which the session only swaps for the defaults when it is
+            // handed back untouched. Building on it locks out every controller, the
+            // plugin's own included. This builder carries the defaults instead -- full
+            // access for trusted controllers (this app, the system), read-only otherwise.
+            MediaSession.ConnectionResult.AcceptedResultBuilder builder = new MediaSession.ConnectionResult.AcceptedResultBuilder(
+                session,
+                controller
+            );
 
-            SessionCommands sessionCommands = connectionResult.availableSessionCommands
-                .buildUpon()
-                .add(new SessionCommand("CHANNEL", new Bundle()))
-                .build();
+            // switching the output is a write, so it follows the same line
+            if (controller.isTrusted()) {
+                builder.setAvailableSessionCommands(
+                    MediaSession.ConnectionResult.DEFAULT_SESSION_COMMANDS.buildUpon()
+                        .add(new SessionCommand("CHANNEL", new Bundle()))
+                        .build()
+                );
+            }
 
-            return MediaSession.ConnectionResult.accept(sessionCommands, connectionResult.availablePlayerCommands);
+            return builder.build();
         }
 
         @NonNull
