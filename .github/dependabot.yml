@@ -12,8 +12,8 @@ updates:
         patterns:
           - '*'
     ignore:
-      # Held back deliberately, see CLAUDE.md: @ionic/eslint-config still ships
-      # @typescript-eslint v5, which caps eslint at 8.x and typescript at 5.x.
+      # Bounded by the lint config, see CLAUDE.md: @ionic/eslint-config takes
+      # eslint ^10 as a peer, and its @typescript-eslint v8 stops below typescript 6.1.
       - dependency-name: eslint
         update-types: [version-update:semver-major]
       - dependency-name: typescript
