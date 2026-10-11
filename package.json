@@ -55,7 +55,7 @@
     "test:web:watch": "vitest",
     "lint": "npm run eslint && npm run prettier -- --check && npm run swiftlint -- lint",
     "fmt": "npm run eslint -- --fix && npm run prettier -- --write && npm run swiftlint -- --fix --format",
-    "eslint": "eslint . --ext ts",
+    "eslint": "eslint",
     "prettier": "prettier \"**/*.{css,html,ts,js,java}\" --plugin=prettier-plugin-java",
     "swiftlint": "node-swiftlint",
     "docgen": "docgen --api NativeAudioPlayerPlugin --output-readme README.md --output-json dist/docs.json",
@@ -75,13 +75,13 @@
     "@capacitor/ios": "^8.5.3",
     "@changesets/changelog-github": "^1.0.1",
     "@changesets/cli": "^3.0.3",
-    "@ionic/eslint-config": "^0.4.0",
+    "@ionic/eslint-config": "^0.5.0",
     "@ionic/prettier-config": "^4.0.0",
     "@ionic/swiftlint-config": "^2.0.0",
     "@types/node": "^26.6.5",
     "@vitest/browser": "^5.0.3",
     "@vitest/browser-playwright": "^5.0.3",
-    "eslint": "^8.57.1",
+    "eslint": "^10.12.0",
     "husky": "^9.1.7",
     "lint-staged": "^17.6.0",
     "playwright": "^1.64.0",
@@ -97,9 +97,6 @@
     "@capacitor/core": ">=8.0.0"
   },
   "prettier": "@ionic/prettier-config",
-  "eslintConfig": {
-    "extends": "@ionic/eslint-config/recommended"
-  },
   "capacitor": {
     "ios": {
       "src": "ios"
