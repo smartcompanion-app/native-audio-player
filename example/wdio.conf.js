@@ -175,8 +175,12 @@ export const config = {
     // Attaching to the webview starts a chromedriver session, so do it once for
     // the whole suite rather than per test. A browser session is already in the
     // only context there is.
+    // A phone with Chrome running also lists WEBVIEW_chrome, often ahead of the
+    // app's own, so on Android ask for the app's webview by package name.
     const contexts = await browser.getContexts();
-    const webviewContext = contexts.find((context) => context.startsWith('WEBVIEW'));
+    const webviewContext =
+      contexts.find((context) => context === `WEBVIEW_${androidCapability['appium:appPackage']}`) ??
+      contexts.find((context) => context.startsWith('WEBVIEW'));
     await browser.switchContext(webviewContext);
   },
 };
