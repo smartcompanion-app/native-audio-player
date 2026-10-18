@@ -244,6 +244,20 @@ describe('stop', () => {
     await harness.player.stop();
     await expect(harness.player.stop()).resolves.toBeUndefined();
   });
+
+  // The element is found on the document, the playlist belongs to the instance, so an
+  // instance can find an element while it has no item of its own -- a second copy of the
+  // plugin, say, or a test runner that shares the page between modules.
+  it('drops an element it has no item for, and reports nothing for it', async () => {
+    const owner = await PlayerHarness.create();
+    const other = await PlayerHarness.create();
+    await owner.start();
+
+    await expect(other.player.stop()).resolves.toBeUndefined();
+
+    expect(other.drain()).toEqual([]);
+    expect(other.audioElement).toBeNull();
+  });
 });
 
 describe('next, previous and select', () => {
