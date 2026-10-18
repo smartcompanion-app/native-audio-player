@@ -139,7 +139,12 @@ export class NativeAudioPlayerWeb extends WebPlugin implements NativeAudioPlayer
   async stop(): Promise<void> {
     const audioElement = this.getAudioElement();
     if (audioElement) {
-      this.notifyListeners('audioPlayerChange', { id: this.items[this.currentIndex].id, state: 'paused' });
+      // The element is found on the document and the playlist is this instance's, so one can
+      // be there without the other. It goes either way, but there is no item to report on.
+      const item = this.items[this.currentIndex];
+      if (item) {
+        this.notifyListeners('audioPlayerChange', { id: item.id, state: 'paused' });
+      }
       audioElement.pause();
       audioElement.remove();
     }
