@@ -1,5 +1,11 @@
 # @smartcompanion/native-audio-player
 
+## 1.0.2
+
+### Patch Changes
+
+- [#68](https://github.com/smartcompanion-app/native-audio-player/pull/68) [`55852b2`](https://github.com/smartcompanion-app/native-audio-player/commit/55852b2150769f0488974c81efa53001a130e1c6) Thanks [@stefanhuber](https://github.com/stefanhuber)! - On the web, `stop()` no longer rejects with "Cannot read properties of undefined (reading 'id')" when it finds an audio element but has no current item of its own. It removes the element either way and reports `paused` only when there is an item to report it for.
+
 ## 1.0.1
 
 ### Patch Changes
