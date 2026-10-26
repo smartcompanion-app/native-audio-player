@@ -19,6 +19,8 @@ public class NativeAudioPlayerPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "getPosition", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "getDuration", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "getState", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "setRate", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "getRate", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "getAudioOutput", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "setEarpiece", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "setSpeaker", returnType: CAPPluginReturnPromise)
@@ -26,6 +28,14 @@ public class NativeAudioPlayerPlugin: CAPPlugin, CAPBridgedPlugin {
 
     // not private: the remote command plumbing in NativeAudioPlayerRemoteCommands.swift drives it too
     var player: NativeAudioPlayer = NativeAudioPlayer([])
+
+    /// Kept here rather than only on the player, which start() replaces -- the rate outlives it,
+    /// see setRate in definitions.ts.
+    private var rate: Float = 1.0
+
+    /// The rates setRate() accepts. AVAudioPlayer plays from 0.5 to 2 and quietly clamps anything
+    /// else, so a wider range would report rates that are not what is heard.
+    static let rateRange: ClosedRange<Double> = 0.5...2.0
 
     // not private so the tests can tell an installed target from a removed one --
     // MPRemoteCommand exposes no way to read back what is registered on it
@@ -45,6 +55,7 @@ public class NativeAudioPlayerPlugin: CAPPlugin, CAPBridgedPlugin {
     @objc func start(_ call: CAPPluginCall) {
         let items = call.getArray("items", [String: Any].self) ?? []
         player = NativeAudioPlayer(items)
+        player.rate = rate
         player.progressInterval = NativeAudioPlayer.progressInterval(for: call.getDouble("progressInterval"))
         player.onProgress = { [weak self] in
             self?.onProgress()
@@ -203,6 +214,22 @@ public class NativeAudioPlayerPlugin: CAPPlugin, CAPBridgedPlugin {
             "position": player.position,
             "duration": player.duration
         ])
+    }
+
+    @objc func setRate(_ call: CAPPluginCall) {
+        // NaN is not in the range either, so it is refused with the rest
+        guard let value = call.getDouble("value"), NativeAudioPlayerPlugin.rateRange.contains(value) else {
+            call.reject("rate must be between 0.5 and 2")
+            return
+        }
+
+        rate = Float(value)
+        player.setRate(rate)
+        call.resolve()
+    }
+
+    @objc func getRate(_ call: CAPPluginCall) {
+        call.resolve(["value": Double(rate)])
     }
 
     @objc func getAudioOutput(_ call: CAPPluginCall) {

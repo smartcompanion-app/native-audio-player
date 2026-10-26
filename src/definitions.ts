@@ -99,6 +99,31 @@ export interface NativeAudioPlayerPlugin {
   seekTo(options: { position: number }): Promise<void>;
 
   /**
+   * Set the speed the audio plays at, as a multiple of normal speed: `1` is normal, `2` twice as
+   * fast, `0.5` half as fast. The pitch is kept, so speech stays listenable at either end.
+   *
+   * The rate belongs to the player rather than to an item, and it stays until it is set again --
+   * across {@link NativeAudioPlayerPlugin.next}, {@link NativeAudioPlayerPlugin.previous},
+   * {@link NativeAudioPlayerPlugin.select}, an output change, and even
+   * {@link NativeAudioPlayerPlugin.stop} and a new {@link NativeAudioPlayerPlugin.start}. It can
+   * be set at any time, including before anything is loaded, and applies to whatever plays next.
+   * Audio that is already playing changes speed straight away.
+   *
+   * Changing the rate does not change the playback state, so it reports nothing.
+   * @param {number} options.value - The rate, from `0.5` to `2` inclusive. Anything outside that
+   * range is rejected and leaves the rate as it was -- the range is the one every platform can
+   * play without the audio breaking up.
+   * @returns {Promise<void>} A promise that resolves when the rate is set.
+   */
+  setRate(options: { value: number }): Promise<void>;
+
+  /**
+   * Get the speed the audio plays at, as set through {@link NativeAudioPlayerPlugin.setRate}.
+   * @returns {Promise<{value: number}>} The rate, `1` until it is set.
+   */
+  getRate(): Promise<{ value: number }>;
+
+  /**
    * Get the duration of the current audio item in seconds.
    *
    * Seconds are fractional on every platform. How finely they are resolved is the player's

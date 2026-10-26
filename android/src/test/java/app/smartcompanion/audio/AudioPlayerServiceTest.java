@@ -37,7 +37,9 @@ public class AudioPlayerServiceTest {
 
     @After
     public void tearDown() {
-        session.release();
+        if (session != null) {
+            session.release();
+        }
         player.release();
     }
 
@@ -84,6 +86,9 @@ public class AudioPlayerServiceTest {
      */
     @Test
     public void testSwitchingTheOutputKeepsTheRate() {
+        // a session id has to be unique in the process, and the running service builds its own
+        session.release();
+        session = null;
         AudioPlayerService running = org.robolectric.Robolectric.buildService(AudioPlayerService.class).create().get();
 
         try {

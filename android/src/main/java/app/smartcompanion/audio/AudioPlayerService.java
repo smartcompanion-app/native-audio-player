@@ -67,6 +67,8 @@ public class AudioPlayerService extends MediaSessionService {
             ExoPlayer newPlayer = getPlayer(channel);
             newPlayer.setMediaItems(getMediaItems());
             newPlayer.seekTo(currentMediaItemIndex, currentPosition);
+            // the rate belongs to the player, so a new one starts at normal speed unless told
+            newPlayer.setPlaybackParameters(oldPlayer.getPlaybackParameters());
             session.setPlayer(newPlayer);
             oldPlayer.release();
             oldPlayer = null;

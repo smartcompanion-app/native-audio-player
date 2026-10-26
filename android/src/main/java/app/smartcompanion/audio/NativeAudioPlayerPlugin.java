@@ -12,6 +12,7 @@ import android.os.Looper;
 import android.util.Log;
 import androidx.annotation.Nullable;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.PlaybackParameters;
 import androidx.media3.common.Player;
 import androidx.media3.session.MediaController;
 import androidx.media3.session.SessionCommand;
@@ -48,7 +49,20 @@ public class NativeAudioPlayerPlugin extends Plugin {
      */
     protected static final String NOT_STARTED = "could not play without a loaded audio item";
 
+    /**
+     * The rates setRate() accepts. ExoPlayer plays a much wider range, but iOS does not, and the
+     * same call has to mean the same thing on every platform -- see setRate in definitions.ts.
+     */
+    protected static final double MIN_RATE = 0.5;
+    protected static final double MAX_RATE = 2.0;
+
     protected NativeAudioPlayer nativeAudioPlayer = new NativeAudioPlayer();
+
+    /**
+     * The speed the audio plays at. Kept here rather than only on the player, so it reaches every
+     * controller start() connects and outlives stop() -- see setRate in definitions.ts.
+     */
+    protected float rate = 1.0f;
 
     protected MediaController mediaController;
 
@@ -309,6 +323,9 @@ public class NativeAudioPlayerPlugin extends Plugin {
             // without this the item is only prepared by the first play(), and until then the
             // player has no duration to report -- iOS and the web know it once start() resolves
             mediaController.prepare();
+            // the session's player outlives this controller, but not necessarily with the rate
+            // still on it -- switching the output replaces it, see AudioPlayerService
+            mediaController.setPlaybackParameters(new PlaybackParameters(rate));
 
             registerPlayerEvents();
             call.resolve(nativeAudioPlayer.prepareIdItem(Objects.requireNonNull(mediaController.getCurrentMediaItem())));
@@ -513,6 +530,34 @@ public class NativeAudioPlayerPlugin extends Plugin {
             result.put("duration", duration > 0 ? duration / 1000.0 : 0.0);
         }
 
+        call.resolve(result);
+    }
+
+    @PluginMethod
+    public void setRate(PluginCall call) {
+        Double value = call.getDouble("value");
+
+        // NaN fails both comparisons, so it is refused with the rest
+        if (value == null || !(value >= MIN_RATE && value <= MAX_RATE)) {
+            call.reject("rate must be between 0.5 and 2");
+            return;
+        }
+
+        rate = value.floatValue();
+
+        // PlaybackParameters(speed) leaves the pitch at 1, which is what keeps speech listenable.
+        // Without a controller it is applied once one connects, see attachController.
+        if (mediaController != null) {
+            mediaController.setPlaybackParameters(new PlaybackParameters(rate));
+        }
+
+        call.resolve();
+    }
+
+    @PluginMethod
+    public void getRate(PluginCall call) {
+        JSObject result = new JSObject();
+        result.put("value", (double) rate);
         call.resolve(result);
     }
 

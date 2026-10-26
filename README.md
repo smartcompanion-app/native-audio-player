@@ -228,6 +228,8 @@ Notes on the events themselves:
 * [`next()`](#next)
 * [`previous()`](#previous)
 * [`seekTo(...)`](#seekto)
+* [`setRate(...)`](#setrate)
+* [`getRate()`](#getrate)
 * [`getDuration()`](#getduration)
 * [`getPosition()`](#getposition)
 * [`getState()`](#getstate)
@@ -401,6 +403,44 @@ waits for the next {@link NativeAudioPlayerPlugin.play}.
 | Param         | Type                               |
 | ------------- | ---------------------------------- |
 | **`options`** | <code>{ position: number; }</code> |
+
+--------------------
+
+
+### setRate(...)
+
+```typescript
+setRate(options: { value: number; }) => Promise<void>
+```
+
+Set the speed the audio plays at, as a multiple of normal speed: `1` is normal, `2` twice as
+fast, `0.5` half as fast. The pitch is kept, so speech stays listenable at either end.
+
+The rate belongs to the player rather than to an item, and it stays until it is set again --
+across {@link NativeAudioPlayerPlugin.next}, {@link NativeAudioPlayerPlugin.previous},
+{@link NativeAudioPlayerPlugin.select}, an output change, and even
+{@link NativeAudioPlayerPlugin.stop} and a new {@link NativeAudioPlayerPlugin.start}. It can
+be set at any time, including before anything is loaded, and applies to whatever plays next.
+Audio that is already playing changes speed straight away.
+
+Changing the rate does not change the playback state, so it reports nothing.
+
+| Param         | Type                            |
+| ------------- | ------------------------------- |
+| **`options`** | <code>{ value: number; }</code> |
+
+--------------------
+
+
+### getRate()
+
+```typescript
+getRate() => Promise<{ value: number; }>
+```
+
+Get the speed the audio plays at, as set through {@link NativeAudioPlayerPlugin.setRate}.
+
+**Returns:** <code>Promise&lt;{ value: number; }&gt;</code>
 
 --------------------
 
