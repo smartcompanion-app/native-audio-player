@@ -24,13 +24,45 @@ extension NativeAudioPlayer {
             MPNowPlayingInfoPropertyIsLiveStream: false
         ]
 
+        let imageURL = resolveURL(item.imageUri)
+
         // decode up front: the artwork request handler is invoked by the system on
         // an arbitrary thread, where a missing or corrupt image used to crash
-        if let imageURL = resolveURL(item.imageUri), let image = UIImage(contentsOfFile: imageURL.path) {
-            nowPlayingInfo[MPMediaItemPropertyArtwork] = MPMediaItemArtwork(boundsSize: image.size) { _ in image }
+        if let imageURL, imageURL.isFileURL, let image = UIImage(contentsOfFile: imageURL.path) {
+            nowPlayingInfo[MPMediaItemPropertyArtwork] = artwork(image)
         }
 
         MPNowPlayingInfoCenter.default().nowPlayingInfo = nowPlayingInfo
+
+        if let imageURL, !imageURL.isFileURL {
+            loadRemoteArtwork(imageURL, for: loadGeneration)
+        }
+    }
+
+    private func artwork(_ image: UIImage) -> MPMediaItemArtwork {
+        MPMediaItemArtwork(boundsSize: image.size) { _ in image }
+    }
+
+    /// Fetches artwork that is not on the device -- a remote item usually comes with a remote
+    /// image -- and adds it once it arrives. The rest of the lock screen does not wait for it,
+    /// and an image that arrives after the item has changed is dropped rather than shown for
+    /// the wrong one.
+    private func loadRemoteArtwork(_ url: URL, for generation: Int) {
+        URLSession.shared.dataTask(with: url) { [weak self] data, _, _ in
+            guard let data, let image = UIImage(data: data) else {
+                return
+            }
+
+            DispatchQueue.main.async {
+                guard let self, generation == self.loadGeneration,
+                      var nowPlayingInfo = MPNowPlayingInfoCenter.default().nowPlayingInfo else {
+                    return
+                }
+
+                nowPlayingInfo[MPMediaItemPropertyArtwork] = self.artwork(image)
+                MPNowPlayingInfoCenter.default().nowPlayingInfo = nowPlayingInfo
+            }
+        }.resume()
     }
 
     /// Writes back the two fields the system cannot work out for itself, leaving the metadata

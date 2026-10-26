@@ -23,6 +23,10 @@ export interface NativeAudioPlayerPlugin {
 
   /**
    * Initialize the audio player with a list of audio items.
+   *
+   * Resolves once the first item can be played, so its duration is known by then -- for a
+   * remote item that means once enough of it has arrived. Rejects when it cannot be loaded at
+   * all, a missing file or a URL that answers with an error, and leaves nothing loaded behind.
    * @param {StartOptions} options - The options for starting the audio player.
    * @returns {Promise<{id: string}>} The id of the first audio item.
    */
@@ -62,6 +66,8 @@ export interface NativeAudioPlayerPlugin {
    *
    * Rejects when no item carries that id, rather than resolving with whatever was already
    * selected -- a caller that asked for one item and silently got another has no way to tell.
+   * Otherwise it resolves once the item can be played, and rejects when it cannot be loaded, the
+   * same as start().
    * @param {string} options.id - The id of the audio item to select.
    * @returns {Promise<{id: string}>} The id of the selected audio item.
    */
@@ -69,12 +75,18 @@ export interface NativeAudioPlayerPlugin {
 
   /**
    * Skip to the next audio item in the playlist.
+   *
+   * Resolves once the item can be played, and rejects when it cannot be loaded, the same as
+   * start().
    * @returns {Promise<{id: string}>} The ID of the next audio item.
    */
   next(): Promise<{ id: string }>;
 
   /**
    * Skip to the previous audio item in the playlist.
+   *
+   * Resolves once the item can be played, and rejects when it cannot be loaded, the same as
+   * start().
    * @returns {Promise<{id: string}>} The ID of the previous audio item.
    */
   previous(): Promise<{ id: string }>;
@@ -378,12 +390,17 @@ export interface Item {
   subtitle: string;
 
   /**
-   * The local file URI of the audio file.
+   * Where the audio is: a local file -- a `file://` URI, or a plain path -- or an `http(s)` URL
+   * to stream from. A remote item is played from where it is rather than downloaded first.
+   *
+   * Plain `http` is subject to the platform's rules for unencrypted traffic: App Transport
+   * Security on iOS and the cleartext policy on Android both refuse it unless the app allows it.
    */
   audioUri: string;
 
   /**
-   * The local file URI of the image associated with the audio item.
+   * The image associated with the audio item, shown e.g. in the notification and on the lock
+   * screen. A local file or an `http(s)` URL, the same as {@link Item.audioUri}.
    */
   imageUri: string;
 }

@@ -10,8 +10,10 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.media3.common.MediaItem;
+import androidx.media3.common.PlaybackException;
 import androidx.media3.common.PlaybackParameters;
 import androidx.media3.common.Player;
 import androidx.media3.session.MediaController;
@@ -328,7 +330,7 @@ public class NativeAudioPlayerPlugin extends Plugin {
             mediaController.setPlaybackParameters(new PlaybackParameters(rate));
 
             registerPlayerEvents();
-            call.resolve(nativeAudioPlayer.prepareIdItem(Objects.requireNonNull(mediaController.getCurrentMediaItem())));
+            answerOnceTheFirstItemSettles(mediaController, call);
         } catch (Exception e) {
             Log.e("NATIVE_AUDIO_PLAYER", "Could not create media player: " + e.getMessage());
 
@@ -344,6 +346,84 @@ public class NativeAudioPlayerPlugin extends Plugin {
             mediaItems = null;
             call.reject("Could not create media player");
         }
+    }
+
+    /**
+     * Answers start() once the first item can be played, or once it is known that it cannot.
+     * <p>
+     * Handing the playlist over is not the same as having something to play. A remote item takes
+     * a moment to arrive, and until it has there is no duration to report and no telling a dead
+     * link from a slow one -- iOS and the web both answer start() at this point, see start() in
+     * definitions.ts.
+     */
+    protected void answerOnceTheFirstItemSettles(MediaController controller, PluginCall call) {
+        if (controller.getPlaybackState() == Player.STATE_READY) {
+            resolveStart(controller, call);
+            return;
+        }
+
+        if (controller.getPlayerError() != null) {
+            rejectStart(controller, call);
+            return;
+        }
+
+        controller.addListener(
+            new Player.Listener() {
+                private boolean answered;
+
+                @Override
+                public void onPlaybackStateChanged(int playbackState) {
+                    if (playbackState == Player.STATE_READY) {
+                        settle(true);
+                    }
+                }
+
+                @Override
+                public void onPlayerError(@NonNull PlaybackException error) {
+                    Log.e("NATIVE_AUDIO_PLAYER", "Could not load the first item: " + error.getMessage());
+                    settle(false);
+                }
+
+                /** Once only: the next item becoming ready, or a seek, must not answer start() again. */
+                private void settle(boolean ready) {
+                    if (answered) {
+                        return;
+                    }
+
+                    answered = true;
+                    controller.removeListener(this);
+
+                    if (ready) {
+                        resolveStart(controller, call);
+                    } else {
+                        rejectStart(controller, call);
+                    }
+                }
+            }
+        );
+    }
+
+    private void resolveStart(MediaController controller, PluginCall call) {
+        try {
+            call.resolve(nativeAudioPlayer.prepareIdItem(Objects.requireNonNull(controller.getCurrentMediaItem())));
+        } catch (Exception e) {
+            Log.e("NATIVE_AUDIO_PLAYER", "Could not read the first item id: " + e.getMessage());
+            call.reject("could not load audio items");
+        }
+    }
+
+    /**
+     * Nothing was loaded after all, so nothing is left behind to play: getState() reports stopped,
+     * and play() refuses the way it does before any start(). A controller that a later start()
+     * already replaced is that start()'s business, and is left alone.
+     */
+    private void rejectStart(MediaController controller, PluginCall call) {
+        if (controller == mediaController) {
+            releaseController();
+            mediaItems = null;
+        }
+
+        call.reject("could not load audio items");
     }
 
     @PluginMethod

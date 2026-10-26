@@ -33,7 +33,7 @@ extension NativeAudioPlayer {
                 return
             }
 
-            if self.audioPlayer?.isPlaying == true {
+            if self.isPlaying {
                 self.onProgress?()
             } else {
                 self.stopProgress()

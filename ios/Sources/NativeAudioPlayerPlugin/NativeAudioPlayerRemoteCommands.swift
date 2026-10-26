@@ -31,12 +31,12 @@ extension NativeAudioPlayerPlugin {
         }
 
         setTarget(commandCenter.nextTrackCommand, &nextTarget) { [weak self] _ in
-            _ = self?.onNext()
+            self?.onNext()
             return .success
         }
 
         setTarget(commandCenter.previousTrackCommand, &previousTarget) { [weak self] _ in
-            _ = self?.onPrevious()
+            self?.onPrevious()
             return .success
         }
 
@@ -134,28 +134,33 @@ extension NativeAudioPlayerPlugin {
     /// Answers the single button a headset offers, which has to work out for itself
     /// which direction it means.
     func onTogglePlayPause() {
-        if player.audioPlayer?.isPlaying == true {
+        if player.isPlaying {
             onPause()
         } else {
             onPlay()
         }
     }
 
-    func onNext() -> Bool {
-        if player.next() {
-            self.notifyListeners("audioPlayerChange", data: ["id": player.currentId, "state": "skipped"])
-            return true
-        } else {
-            return false
+    /// Moves on and reports the skip once the item has loaded. A load that another overtook is
+    /// not reported at all, so pressing next twice in a row reports one skip, for the item it
+    /// ends on.
+    func onNext(_ completion: @escaping (Bool) -> Void = { _ in }) {
+        player.next { [weak self] loaded in
+            self?.onSkipped(loaded)
+            completion(loaded)
         }
     }
 
-    func onPrevious() -> Bool {
-        if player.previous() {
+    func onPrevious(_ completion: @escaping (Bool) -> Void = { _ in }) {
+        player.previous { [weak self] loaded in
+            self?.onSkipped(loaded)
+            completion(loaded)
+        }
+    }
+
+    private func onSkipped(_ loaded: Bool) {
+        if loaded {
             self.notifyListeners("audioPlayerChange", data: ["id": player.currentId, "state": "skipped"])
-            return true
-        } else {
-            return false
         }
     }
 
