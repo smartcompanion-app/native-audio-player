@@ -233,6 +233,7 @@ Notes on the events themselves:
 * [`getState()`](#getstate)
 * [`getAudioOutput()`](#getaudiooutput)
 * [`addListener('audioPlayerChange', ...)`](#addlisteneraudioplayerchange-)
+* [`addListener('progress', ...)`](#addlistenerprogress-)
 * [`addListener('audioOutputChange', ...)`](#addlisteneraudiooutputchange-)
 * [Interfaces](#interfaces)
 * [Type Aliases](#type-aliases)
@@ -498,6 +499,35 @@ See {@link <a href="#audioplayerstate">AudioPlayerState</a>} for what each state
 --------------------
 
 
+### addListener('progress', ...)
+
+```typescript
+addListener(eventName: 'progress', listener: (result: AudioPlayerProgress) => void) => Promise<PluginListenerHandle>
+```
+
+Add an event listener for the playhead. While the audio is playing it reports where the
+selected item is, every {@link <a href="#startoptions">StartOptions.progressInterval</a>} seconds -- twice a second
+unless `start()` was given another interval -- which is what a progress bar needs to follow
+playback without polling {@link NativeAudioPlayerPlugin.getPosition}.
+
+It reports only while playing. It stops with the playback, whatever stopped it -- a pause, a
+skip, an output change, an interruption, the item running out, or
+{@link NativeAudioPlayerPlugin.stop} -- and starts again with the next `playing`. A player
+that is not running does not move, so there is nothing to report; ask
+{@link NativeAudioPlayerPlugin.getState} for where it stands.
+
+It is an event of its own, and adds nothing to `audioPlayerChange`.
+
+| Param           | Type                                                                                     |
+| --------------- | ---------------------------------------------------------------------------------------- |
+| **`eventName`** | <code>'progress'</code>                                                                  |
+| **`listener`**  | <code>(result: <a href="#audioplayerprogress">AudioPlayerProgress</a>) =&gt; void</code> |
+
+**Returns:** <code>Promise&lt;<a href="#pluginlistenerhandle">PluginListenerHandle</a>&gt;</code>
+
+--------------------
+
+
 ### addListener('audioOutputChange', ...)
 
 ```typescript
@@ -531,9 +561,10 @@ app: call {@link NativeAudioPlayerPlugin.play} from this listener to play on reg
 
 Options for starting the audio player.
 
-| Prop        | Type                | Description                                                  |
-| ----------- | ------------------- | ------------------------------------------------------------ |
-| **`items`** | <code>Item[]</code> | A list of audio items to be initialized in the audio player. |
+| Prop                   | Type                | Description                                                                                                                                                   | Default          |
+| ---------------------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
+| **`items`**            | <code>Item[]</code> | A list of audio items to be initialized in the audio player.                                                                                                  |                  |
+| **`progressInterval`** | <code>number</code> | How often the `progress` event reports the playhead while the audio is playing, in seconds. Anything that is not a positive number falls back to the default. | <code>0.5</code> |
 
 
 #### Item
@@ -576,6 +607,17 @@ The payload of the `audioPlayerChange` event.
 | ----------- | ------------------------------------------------------------- | --------------------------------------------- |
 | **`state`** | <code><a href="#audioplayerstate">AudioPlayerState</a></code> | The playback state the player changed to.     |
 | **`id`**    | <code>string</code>                                           | The id of the audio item the state refers to. |
+
+
+#### AudioPlayerProgress
+
+The payload of the `progress` event.
+
+| Prop           | Type                | Description                                                                                                         |
+| -------------- | ------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| **`id`**       | <code>string</code> | The id of the audio item that is playing.                                                                           |
+| **`position`** | <code>number</code> | The position in the item in fractional seconds, the same value {@link NativeAudioPlayerPlugin.getPosition} reports. |
+| **`duration`** | <code>number</code> | The duration of the item in fractional seconds, the same value {@link NativeAudioPlayerPlugin.getDuration} reports. |
 
 
 #### AudioOutputChange

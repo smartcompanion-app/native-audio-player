@@ -47,6 +47,7 @@ extension NativeAudioPlayer {
 
         audioPlayer?.pause()
         playWhenReady = false
+        stopProgress()
 
         // explicitly, rather than through pause(): its guard is on isPlaying, which the system
         // has already cleared, so the lock screen would keep a rate of 1.0 and go on offering

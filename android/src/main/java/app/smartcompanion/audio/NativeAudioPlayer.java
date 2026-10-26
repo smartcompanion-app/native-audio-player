@@ -3,6 +3,7 @@ package app.smartcompanion.audio;
 import android.media.AudioDeviceInfo;
 import android.net.Uri;
 import android.util.Log;
+import androidx.annotation.Nullable;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaMetadata;
 import com.getcapacitor.JSObject;
@@ -17,6 +18,24 @@ public class NativeAudioPlayer {
     public static final String OUTPUT_EARPIECE = "earpiece";
     public static final String OUTPUT_SPEAKER = "speaker";
     public static final String OUTPUT_EXTERNAL = "external";
+
+    /** How often the progress event reports by default, see StartOptions.progressInterval. */
+    public static final long DEFAULT_PROGRESS_INTERVAL_MILLIS = 500;
+
+    /**
+     * What an interval start() was given turns into: anything that is not a positive number falls
+     * back to the default -- see StartOptions.progressInterval in definitions.ts.
+     *
+     * @param seconds the interval as start() received it, or null when it was left out
+     */
+    public static long progressIntervalMillis(@Nullable Double seconds) {
+        // NaN fails this comparison as well, so it falls back with the rest
+        if (seconds == null || !(seconds > 0)) {
+            return DEFAULT_PROGRESS_INTERVAL_MILLIS;
+        }
+
+        return Math.max(1, Math.round(seconds * 1000));
+    }
 
     public List<MediaItem> fromJson(JSObject json) {
         List<MediaItem> mediaItems = new ArrayList<>();
@@ -54,6 +73,15 @@ public class NativeAudioPlayer {
         JSONObject json = new JSONObject();
         json.put("state", event);
         json.put("id", mediaItem.mediaId);
+        return JSObject.fromJSONObject(json);
+    }
+
+    public JSObject prepareProgressEvent(MediaItem mediaItem, long positionMillis, long durationMillis) throws JSONException {
+        JSONObject json = new JSONObject();
+        json.put("id", mediaItem.mediaId);
+        json.put("position", positionMillis / 1000.0);
+        // C.TIME_UNSET while the duration is not known yet, as in getDuration()
+        json.put("duration", durationMillis > 0 ? durationMillis / 1000.0 : 0.0);
         return JSObject.fromJSONObject(json);
     }
 

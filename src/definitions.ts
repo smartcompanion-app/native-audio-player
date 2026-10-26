@@ -156,6 +156,23 @@ export interface NativeAudioPlayerPlugin {
   ): Promise<PluginListenerHandle>;
 
   /**
+   * Add an event listener for the playhead. While the audio is playing it reports where the
+   * selected item is, every {@link StartOptions.progressInterval} seconds -- twice a second
+   * unless `start()` was given another interval -- which is what a progress bar needs to follow
+   * playback without polling {@link NativeAudioPlayerPlugin.getPosition}.
+   *
+   * It reports only while playing. It stops with the playback, whatever stopped it -- a pause, a
+   * skip, an output change, an interruption, the item running out, or
+   * {@link NativeAudioPlayerPlugin.stop} -- and starts again with the next `playing`. A player
+   * that is not running does not move, so there is nothing to report; ask
+   * {@link NativeAudioPlayerPlugin.getState} for where it stands.
+   *
+   * It is an event of its own, and adds nothing to `audioPlayerChange`.
+   * @returns {Promise<PluginListenerHandle>} The listener can be removed using the returned handle.
+   */
+  addListener(eventName: 'progress', listener: (result: AudioPlayerProgress) => void): Promise<PluginListenerHandle>;
+
+  /**
    * Add an event listener for audio output changes. Fires both when the output is changed
    * through {@link NativeAudioPlayerPlugin.setEarpiece} or {@link NativeAudioPlayerPlugin.setSpeaker}
    * and when the route changes on its own, e.g. when headphones are unplugged or a bluetooth
@@ -267,6 +284,28 @@ export interface AudioPlayerChange {
 }
 
 /**
+ * The payload of the `progress` event.
+ */
+export interface AudioPlayerProgress {
+  /**
+   * The id of the audio item that is playing.
+   */
+  id: string;
+
+  /**
+   * The position in the item in fractional seconds, the same value
+   * {@link NativeAudioPlayerPlugin.getPosition} reports.
+   */
+  position: number;
+
+  /**
+   * The duration of the item in fractional seconds, the same value
+   * {@link NativeAudioPlayerPlugin.getDuration} reports.
+   */
+  duration: number;
+}
+
+/**
  * The payload of the `audioOutputChange` event.
  */
 export interface AudioOutputChange {
@@ -284,6 +323,14 @@ export interface StartOptions {
    * A list of audio items to be initialized in the audio player.
    */
   items: Item[];
+
+  /**
+   * How often the `progress` event reports the playhead while the audio is playing, in seconds.
+   * Anything that is not a positive number falls back to the default.
+   *
+   * @default 0.5
+   */
+  progressInterval?: number;
 }
 
 /**
