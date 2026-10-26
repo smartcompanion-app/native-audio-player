@@ -580,6 +580,22 @@ public class NativeAudioPlayerPluginTest {
         Assert.assertEquals("item1", assertResolved(call).getString("id"));
     }
 
+    /**
+     * An item that was never prepared has no duration yet, so getDuration() and getState() would
+     * report 0 until the first play() -- where iOS and the web know it as soon as start() resolves.
+     */
+    @Test
+    public void testAttachControllerPreparesTheFirstItem() {
+        MediaController controller = controllerWithCurrentItem("item1");
+        plugin.mediaItems = new java.util.ArrayList<>();
+
+        plugin.attachController(Futures.immediateFuture(controller), call());
+
+        InOrder inOrder = inOrder(controller);
+        inOrder.verify(controller).setMediaItems(plugin.mediaItems);
+        inOrder.verify(controller).prepare();
+    }
+
     @Test
     public void testAttachControllerReleasesTheControllerWhenSetupFails() {
         MediaController controller = mock(MediaController.class);

@@ -116,6 +116,21 @@ export interface NativeAudioPlayerPlugin {
   getPosition(): Promise<{ value: number }>;
 
   /**
+   * Get what the player is doing right now: which item is selected, whether it is playing, and
+   * where in it the player is.
+   *
+   * The `audioPlayerChange` event only reports changes, so an app that mounts after the player
+   * was started, or that missed an event, has no other way to find out where things stand.
+   * Asking changes nothing and reports nothing.
+   *
+   * Before {@link NativeAudioPlayerPlugin.start} and after {@link NativeAudioPlayerPlugin.stop}
+   * nothing is loaded, which is reported as `stopped` with an empty `id` and zero for both
+   * times -- rather than rejected, since that is a perfectly good answer to the question.
+   * @returns {Promise<PlayerState>} The current state of the player.
+   */
+  getState(): Promise<PlayerState>;
+
+  /**
    * Get the audio output the player is currently routed to.
    * @returns {Promise<{output: AudioOutput}>} The current audio output.
    */
@@ -183,6 +198,47 @@ export interface NativeAudioPlayerPlugin {
  *   {@link NativeAudioPlayerPlugin.next} from this listener to play through a playlist.
  */
 export type AudioPlayerState = 'playing' | 'paused' | 'skip' | 'completed';
+
+/**
+ * Whether the player is playing, as {@link NativeAudioPlayerPlugin.getState} reports it.
+ *
+ * Unlike {@link AudioPlayerState}, which names the transitions, this names where those
+ * transitions leave the player:
+ *
+ * - `playing` -- the audio is running.
+ * - `paused` -- an item is loaded and not running. That covers an item that was just selected
+ *   or started, one that was paused, and one that played out, which is rewound to its start.
+ * - `stopped` -- nothing is loaded, before {@link NativeAudioPlayerPlugin.start} and after
+ *   {@link NativeAudioPlayerPlugin.stop}.
+ */
+export type PlaybackState = 'playing' | 'paused' | 'stopped';
+
+/**
+ * The result of {@link NativeAudioPlayerPlugin.getState}.
+ */
+export interface PlayerState {
+  /**
+   * The id of the selected audio item, or an empty string while the player is `stopped`.
+   */
+  id: string;
+
+  /**
+   * Whether the player is playing.
+   */
+  state: PlaybackState;
+
+  /**
+   * The position in the selected item in fractional seconds, the same value
+   * {@link NativeAudioPlayerPlugin.getPosition} reports.
+   */
+  position: number;
+
+  /**
+   * The duration of the selected item in fractional seconds, the same value
+   * {@link NativeAudioPlayerPlugin.getDuration} reports.
+   */
+  duration: number;
+}
 
 /**
  * The audio output the player is routed to.

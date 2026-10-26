@@ -1,6 +1,6 @@
 import { WebPlugin } from '@capacitor/core';
 
-import type { NativeAudioPlayerPlugin, StartOptions, Item, AudioOutput } from './definitions';
+import type { NativeAudioPlayerPlugin, StartOptions, Item, AudioOutput, PlayerState } from './definitions';
 
 const getMediaSession = () => {
   return 'mediaSession' in navigator ? (navigator as any).mediaSession : null;
@@ -255,6 +255,24 @@ export class NativeAudioPlayerWeb extends WebPlugin implements NativeAudioPlayer
   async getPosition(): Promise<{ value: number }> {
     const audioElement = this.getAudioElement();
     return { value: audioElement ? audioElement.currentTime : 0 };
+  }
+
+  async getState(): Promise<PlayerState> {
+    const audioElement = this.getAudioElement();
+    const item = this.items[this.currentIndex];
+
+    // the element is found on the document and the playlist is this instance's, so one can be
+    // there without the other -- and without both there is nothing loaded to describe
+    if (!audioElement || !item) {
+      return { id: '', state: 'stopped', position: 0, duration: 0 };
+    }
+
+    return {
+      id: item.id,
+      state: audioElement.paused ? 'paused' : 'playing',
+      position: (await this.getPosition()).value,
+      duration: (await this.getDuration()).value,
+    };
   }
 
   loadAudio(item: Item): Promise<{ id: string }> {

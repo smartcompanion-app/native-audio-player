@@ -53,7 +53,10 @@ describe("The player state", () => {
 
     const paused = await readState();
     expect(paused.state).toBe("paused");
-    expect(paused.position).toBeGreaterThanOrEqual(later.position);
+    // Android's controller extrapolates the position while playing and can be a little ahead of
+    // where the player actually stops, so the paused position may land a fraction behind the
+    // last one read while playing -- but not further than that
+    expect(paused.position).toBeGreaterThan(later.position - 0.5);
 
     // and it is the paused player's position, which stays put
     await browser.pause(1000);

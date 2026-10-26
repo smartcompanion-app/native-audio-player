@@ -229,6 +229,7 @@ Notes on the events themselves:
 * [`seekTo(...)`](#seekto)
 * [`getDuration()`](#getduration)
 * [`getPosition()`](#getposition)
+* [`getState()`](#getstate)
 * [`getAudioOutput()`](#getaudiooutput)
 * [`addListener('audioPlayerChange', ...)`](#addlisteneraudioplayerchange-)
 * [`addListener('audioOutputChange', ...)`](#addlisteneraudiooutputchange-)
@@ -433,6 +434,28 @@ want whole seconds can round the value themselves.
 --------------------
 
 
+### getState()
+
+```typescript
+getState() => Promise<PlayerState>
+```
+
+Get what the player is doing right now: which item is selected, whether it is playing, and
+where in it the player is.
+
+The `audioPlayerChange` event only reports changes, so an app that mounts after the player
+was started, or that missed an event, has no other way to find out where things stand.
+Asking changes nothing and reports nothing.
+
+Before {@link NativeAudioPlayerPlugin.start} and after {@link NativeAudioPlayerPlugin.stop}
+nothing is loaded, which is reported as `stopped` with an empty `id` and zero for both
+times -- rather than rejected, since that is a perfectly good answer to the question.
+
+**Returns:** <code>Promise&lt;<a href="#playerstate">PlayerState</a>&gt;</code>
+
+--------------------
+
+
 ### getAudioOutput()
 
 ```typescript
@@ -523,6 +546,18 @@ Represents an audio item in the playlist.
 | **`imageUri`** | <code>string</code> | The local file URI of the image associated with the audio item.                     |
 
 
+#### PlayerState
+
+The result of {@link NativeAudioPlayerPlugin.getState}.
+
+| Prop           | Type                                                    | Description                                                                                                                  |
+| -------------- | ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| **`id`**       | <code>string</code>                                     | The id of the selected audio item, or an empty string while the player is `stopped`.                                         |
+| **`state`**    | <code><a href="#playbackstate">PlaybackState</a></code> | Whether the player is playing.                                                                                               |
+| **`position`** | <code>number</code>                                     | The position in the selected item in fractional seconds, the same value {@link NativeAudioPlayerPlugin.getPosition} reports. |
+| **`duration`** | <code>number</code>                                     | The duration of the selected item in fractional seconds, the same value {@link NativeAudioPlayerPlugin.getDuration} reports. |
+
+
 #### PluginListenerHandle
 
 | Prop         | Type                                      |
@@ -550,6 +585,22 @@ The payload of the `audioOutputChange` event.
 
 
 ### Type Aliases
+
+
+#### PlaybackState
+
+Whether the player is playing, as {@link NativeAudioPlayerPlugin.getState} reports it.
+
+Unlike {@link <a href="#audioplayerstate">AudioPlayerState</a>}, which names the transitions, this names where those
+transitions leave the player:
+
+- `playing` -- the audio is running.
+- `paused` -- an item is loaded and not running. That covers an item that was just selected
+  or started, one that was paused, and one that played out, which is rewound to its start.
+- `stopped` -- nothing is loaded, before {@link NativeAudioPlayerPlugin.start} and after
+  {@link NativeAudioPlayerPlugin.stop}.
+
+<code>'playing' | 'paused' | 'stopped'</code>
 
 
 #### AudioOutput

@@ -18,6 +18,7 @@ public class NativeAudioPlayerPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "seekTo", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "getPosition", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "getDuration", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "getState", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "getAudioOutput", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "setEarpiece", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "setSpeaker", returnType: CAPPluginReturnPromise)
@@ -214,6 +215,23 @@ public class NativeAudioPlayerPlugin: CAPPlugin, CAPBridgedPlugin {
 
     @objc func getDuration(_ call: CAPPluginCall) {
         call.resolve(["value": player.duration])
+    }
+
+    /// Nothing loaded is an answer rather than a failure, see getState in definitions.ts. The
+    /// playlist outlives stop() on the player, so it is the missing audio player that says
+    /// nothing is loaded -- currentId would still name the item that was.
+    @objc func getState(_ call: CAPPluginCall) {
+        guard let audioPlayer = player.audioPlayer else {
+            call.resolve(["id": "", "state": "stopped", "position": 0.0, "duration": 0.0])
+            return
+        }
+
+        call.resolve([
+            "id": player.currentId,
+            "state": audioPlayer.isPlaying ? "playing" : "paused",
+            "position": player.position,
+            "duration": player.duration
+        ])
     }
 
     @objc func getAudioOutput(_ call: CAPPluginCall) {
