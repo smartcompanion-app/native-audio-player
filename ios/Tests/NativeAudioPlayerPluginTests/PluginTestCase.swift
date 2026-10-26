@@ -68,12 +68,16 @@ class PluginTestCase: XCTestCase {
     /// remote audio has to arrive before it can be played -- so start(), next(), previous() and
     /// select() answer after they return, and a test that asserts straight away would be
     /// asserting on a call that is still in flight.
+    ///
+    /// The timeout is generous on purpose. A CI simulator has no audio device, and there AVPlayer
+    /// can take most of ten seconds to get even a local item ready -- a wait sized for a laptop
+    /// fails there on an item that was about to load.
     @discardableResult
     func answer(
         _ method: (CAPPluginCall) -> Void,
         _ options: [String: Any] = [:],
         with recorder: CallRecorder = CallRecorder(),
-        timeout: TimeInterval = 10
+        timeout: TimeInterval = 30
     ) -> CallRecorder {
         method(recorder.makeCall(options))
         waitUntil(timeout: timeout) { recorder.answered }
@@ -81,8 +85,8 @@ class PluginTestCase: XCTestCase {
         return recorder
     }
 
-    /// Loads the current item of a player and waits for the outcome.
-    func load(_ player: NativeAudioPlayer, timeout: TimeInterval = 10) -> Bool {
+    /// Loads the current item of a player and waits for the outcome, as long as `answer` does.
+    func load(_ player: NativeAudioPlayer, timeout: TimeInterval = 30) -> Bool {
         var outcome: Bool?
         player.load { outcome = $0 }
         waitUntil(timeout: timeout) { outcome != nil }

@@ -158,7 +158,7 @@ class NativeAudioPlayerRemoteTests: PluginTestCase {
         let last = CallRecorder()
         plugin.next(overtaken.makeCall())
         plugin.next(last.makeCall())
-        waitUntil { overtaken.answered && last.answered }
+        waitUntil(timeout: 30) { overtaken.answered && last.answered }
 
         XCTAssertTrue(overtaken.answered, "the overtaken call was never answered")
         XCTAssertEqual(last.resolved?["id"] as? String, "3")
