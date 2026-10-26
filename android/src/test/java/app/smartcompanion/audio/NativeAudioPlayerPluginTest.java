@@ -584,6 +584,7 @@ public class NativeAudioPlayerPluginTest {
     @Test
     public void testAttachControllerConfiguresTheControllerAndResolvesWithTheFirstId() throws Exception {
         MediaController controller = controllerWithCurrentItem("item1");
+        when(controller.getPlaybackState()).thenReturn(Player.STATE_READY);
         plugin.mediaItems = new java.util.ArrayList<>();
         PluginCall call = call();
 

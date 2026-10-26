@@ -45,7 +45,7 @@ class NativeAudioPlayerPluginTests: PluginTestCase {
         let audio = try writeAudioFile(at: "after-stop.wav")
         let plugin = RecordingPlugin()
 
-        plugin.start(CallRecorder().makeCall(["items": [item(id: "1", audio: audio)]]))
+        answer(plugin.start, ["items": [item(id: "1", audio: audio)]])
         plugin.stop(CallRecorder().makeCall())
 
         let recorder = CallRecorder()
@@ -60,7 +60,7 @@ class NativeAudioPlayerPluginTests: PluginTestCase {
         let audio = try writeAudioFile(at: "stop-while-playing.wav")
         let plugin = RecordingPlugin()
 
-        plugin.start(CallRecorder().makeCall(["items": [item(id: "1", audio: audio)]]))
+        answer(plugin.start, ["items": [item(id: "1", audio: audio)]])
         plugin.play(CallRecorder().makeCall())
         let before = plugin.events.count
 
@@ -77,9 +77,9 @@ class NativeAudioPlayerPluginTests: PluginTestCase {
         let nextRecorder = CallRecorder()
         let previousRecorder = CallRecorder()
 
-        plugin.select(selectRecorder.makeCall(["id": "1"]))
-        plugin.next(nextRecorder.makeCall())
-        plugin.previous(previousRecorder.makeCall())
+        answer(plugin.select, ["id": "1"], with: selectRecorder)
+        answer(plugin.next, with: nextRecorder)
+        answer(plugin.previous, with: previousRecorder)
 
         XCTAssertEqual(selectRecorder.rejected, "could not switch to item with given id")
         XCTAssertEqual(nextRecorder.rejected, "could not switch to next item")
@@ -115,7 +115,7 @@ class NativeAudioPlayerPluginTests: PluginTestCase {
         let plugin = RecordingPlugin()
         let recorder = CallRecorder()
 
-        plugin.start(recorder.makeCall(["items": []]))
+        answer(plugin.start, ["items": []], with: recorder)
 
         XCTAssertEqual(recorder.rejected, "could not load audio items")
     }
@@ -124,7 +124,7 @@ class NativeAudioPlayerPluginTests: PluginTestCase {
         let plugin = RecordingPlugin()
         let recorder = CallRecorder()
 
-        plugin.start(recorder.makeCall())
+        answer(plugin.start, with: recorder)
 
         XCTAssertEqual(recorder.rejected, "could not load audio items")
     }
@@ -136,7 +136,7 @@ class NativeAudioPlayerPluginTests: PluginTestCase {
         let plugin = RecordingPlugin()
         let recorder = CallRecorder()
 
-        plugin.start(recorder.makeCall(["items": [item(id: "1", audio: audio)]]))
+        answer(plugin.start, ["items": [item(id: "1", audio: audio)]], with: recorder)
 
         XCTAssertNil(recorder.rejected)
         XCTAssertEqual(recorder.resolved?["id"] as? String, "1")
@@ -149,7 +149,7 @@ class NativeAudioPlayerPluginTests: PluginTestCase {
         let plugin = RecordingPlugin()
         let recorder = CallRecorder()
 
-        plugin.start(recorder.makeCall(["items": [item(id: "nested", audio: audio)]]))
+        answer(plugin.start, ["items": [item(id: "nested", audio: audio)]], with: recorder)
 
         XCTAssertNil(recorder.rejected)
         XCTAssertEqual(recorder.resolved?["id"] as? String, "nested")
@@ -160,13 +160,13 @@ class NativeAudioPlayerPluginTests: PluginTestCase {
         let plugin = RecordingPlugin()
         let recorder = CallRecorder()
 
-        plugin.start(recorder.makeCall(["items": [[
+        answer(plugin.start, ["items": [[
             "id": "plain",
             "title": "Plain",
             "subtitle": "Path",
             "audioUri": audio.path,
             "imageUri": ""
-        ]]]))
+        ]]], with: recorder)
 
         XCTAssertNil(recorder.rejected)
         XCTAssertEqual(recorder.resolved?["id"] as? String, "plain")
@@ -177,7 +177,7 @@ class NativeAudioPlayerPluginTests: PluginTestCase {
         let recorder = CallRecorder()
         let missing = sandbox.appendingPathComponent("gone.wav")
 
-        plugin.start(recorder.makeCall(["items": [item(id: "1", audio: missing)]]))
+        answer(plugin.start, ["items": [item(id: "1", audio: missing)]], with: recorder)
 
         XCTAssertEqual(recorder.rejected, "could not load audio items")
     }
@@ -190,7 +190,7 @@ class NativeAudioPlayerPluginTests: PluginTestCase {
         let audio = try writeAudioFile(at: "outside.wav", seconds: 5)
         let plugin = RecordingPlugin()
 
-        plugin.start(CallRecorder().makeCall(["items": [item(id: "1", audio: audio)]]))
+        answer(plugin.start, ["items": [item(id: "1", audio: audio)]])
 
         // AVAudioPlayer does not keep a position past the end, so an unclamped seek landed
         // somewhere the player could not play from
@@ -211,8 +211,8 @@ class NativeAudioPlayerPluginTests: PluginTestCase {
         let plugin = RecordingPlugin()
         let recorder = CallRecorder()
 
-        plugin.start(CallRecorder().makeCall(["items": [item(id: "1", audio: audio)]]))
-        plugin.select(recorder.makeCall(["id": "does-not-exist"]))
+        answer(plugin.start, ["items": [item(id: "1", audio: audio)]])
+        answer(plugin.select, ["id": "does-not-exist"], with: recorder)
 
         // it used to resolve with the item the caller already had
         XCTAssertEqual(recorder.rejected, "could not switch to item with given id")
@@ -233,7 +233,7 @@ class NativeAudioPlayerPluginTests: PluginTestCase {
             let plugin = RecordingPlugin()
             weakPlugin = plugin
 
-            plugin.start(CallRecorder().makeCall(["items": [item(id: "1", audio: audio)]]))
+            answer(plugin.start, ["items": [item(id: "1", audio: audio)]])
             plugin.stop(CallRecorder().makeCall())
         }
 
@@ -246,11 +246,11 @@ class NativeAudioPlayerPluginTests: PluginTestCase {
         let audio = try writeAudioFile(at: "failed-restart.wav")
         let plugin = RecordingPlugin()
 
-        plugin.start(CallRecorder().makeCall(["items": [item(id: "1", audio: audio)]]))
+        answer(plugin.start, ["items": [item(id: "1", audio: audio)]])
         XCTAssertNotNil(plugin.playTarget)
 
         let recorder = CallRecorder()
-        plugin.start(recorder.makeCall(["items": []]))
+        answer(plugin.start, ["items": []], with: recorder)
 
         XCTAssertEqual(recorder.rejected, "could not load audio items")
         XCTAssertNil(plugin.pauseTarget)
@@ -269,7 +269,7 @@ class NativeAudioPlayerPluginTests: PluginTestCase {
             let plugin = RecordingPlugin()
             weakPlugin = plugin
 
-            plugin.start(CallRecorder().makeCall(["items": [item(id: "1", audio: audio)]]))
+            answer(plugin.start, ["items": [item(id: "1", audio: audio)]])
         }
 
         XCTAssertNil(weakPlugin, "plugin leaked -- deinit has to drop the remote command targets")

@@ -19,7 +19,7 @@ class NativeAudioPlayerProgressTests: PluginTestCase {
         let plugin = RecordingPlugin()
         var startOptions = options
         startOptions["items"] = [item(id: "1", audio: audio)]
-        plugin.start(CallRecorder().makeCall(startOptions))
+        answer(plugin.start, startOptions)
         return plugin
     }
 
@@ -100,10 +100,10 @@ class NativeAudioPlayerProgressTests: PluginTestCase {
         let first = try writeAudioFile(at: "progress-skip-1.wav", seconds: 5)
         let second = try writeAudioFile(at: "progress-skip-2.wav", seconds: 5)
         let plugin = RecordingPlugin()
-        plugin.start(CallRecorder().makeCall(["items": [item(id: "1", audio: first), item(id: "2", audio: second)]]))
+        answer(plugin.start, ["items": [item(id: "1", audio: first), item(id: "2", audio: second)]])
         plugin.play(CallRecorder().makeCall())
 
-        plugin.next(CallRecorder().makeCall())
+        answer(plugin.next)
         let reported = progress(of: plugin).count
         spin(for: 1.2)
 

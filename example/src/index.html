@@ -60,7 +60,11 @@
 
       <div class="controls">
         <button disabled id="start-stop">STOP</button>
+        <!-- the same playlist streamed over HTTP, and one whose audio is not there -->
+        <button id="start-remote">REMOTE</button>
+        <button id="start-missing">MISSING</button>
       </div>
+      <div id="start-error" hidden></div>
 
       <!-- What getState() answered last, as JSON, so the e2e tests can read the player instead
            of only following its events. -->

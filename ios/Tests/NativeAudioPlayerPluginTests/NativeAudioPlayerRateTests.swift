@@ -5,9 +5,8 @@ import MediaPlayer
 /// The playback rate. Spoken word -- audio guides, narration -- is often listened to faster or
 /// slower than it was recorded, see setRate in definitions.ts.
 ///
-/// AVAudioPlayer only honours a rate when enableRate was set before prepareToPlay(), and the
-/// player is rebuilt for every item and every output change -- so most of what is pinned down
-/// here is that the rate reaches each new one.
+/// AVPlayer starts at whatever rate it is set to, and play() is where it is set -- so most of
+/// what is pinned down here is that every item, and every start(), plays at the one asked for.
 class NativeAudioPlayerRateTests: PluginTestCase {
 
     private func rate(of plugin: RecordingPlugin) throws -> Double {
@@ -29,21 +28,23 @@ class NativeAudioPlayerRateTests: PluginTestCase {
     private func startedPlugin(ids: [String] = ["1"]) throws -> RecordingPlugin {
         let items = try ids.map { item(id: $0, audio: try writeAudioFile(at: "rate-\($0)-\(UUID().uuidString).wav", seconds: 5)) }
         let plugin = RecordingPlugin()
-        plugin.start(CallRecorder().makeCall(["items": items]))
+        answer(plugin.start, ["items": items])
         return plugin
     }
 
     // MARK: - The player
 
-    func testALoadedPlayerIsPreparedToChangeItsRate() throws {
+    func testALoadedPlayerPlaysAtItsRateKeepingThePitch() throws {
         let audio = try writeAudioFile(at: "rate-enabled.wav", seconds: 5)
         let player = NativeAudioPlayer([["id": "1", "audioUri": audio.absoluteString]])
         player.rate = 1.5
 
-        XCTAssertTrue(player.load())
+        XCTAssertTrue(load(player))
+        player.play()
 
-        XCTAssertEqual(player.audioPlayer?.enableRate, true)
         XCTAssertEqual(try XCTUnwrap(player.audioPlayer?.rate), 1.5, accuracy: 0.001)
+        // varispeed is the one algorithm that lets the pitch move with the rate
+        XCTAssertNotEqual(player.audioPlayer?.currentItem?.audioTimePitchAlgorithm, .varispeed)
     }
 
     // MARK: - The plugin
@@ -84,7 +85,7 @@ class NativeAudioPlayerRateTests: PluginTestCase {
         XCTAssertNil(setRate(0.5, on: plugin).rejected)
 
         let audio = try writeAudioFile(at: "rate-before-start.wav", seconds: 5)
-        plugin.start(CallRecorder().makeCall(["items": [item(id: "1", audio: audio)]]))
+        answer(plugin.start, ["items": [item(id: "1", audio: audio)]])
         plugin.play(CallRecorder().makeCall())
 
         XCTAssertEqual(try rate(of: plugin), 0.5)
@@ -95,13 +96,13 @@ class NativeAudioPlayerRateTests: PluginTestCase {
         let plugin = try startedPlugin(ids: ["1", "2"])
         _ = setRate(2, on: plugin)
 
-        plugin.next(CallRecorder().makeCall())
+        answer(plugin.next)
         plugin.play(CallRecorder().makeCall())
 
         XCTAssertEqual(try rate(of: plugin), 2)
         XCTAssertEqual(try XCTUnwrap(lockScreenRate()), 2, accuracy: 0.001)
 
-        plugin.select(CallRecorder().makeCall(["id": "1"]))
+        answer(plugin.select, ["id": "1"])
         plugin.play(CallRecorder().makeCall())
 
         XCTAssertEqual(try XCTUnwrap(lockScreenRate()), 2, accuracy: 0.001)
@@ -124,7 +125,7 @@ class NativeAudioPlayerRateTests: PluginTestCase {
 
         plugin.stop(CallRecorder().makeCall())
         let audio = try writeAudioFile(at: "rate-restart.wav", seconds: 5)
-        plugin.start(CallRecorder().makeCall(["items": [item(id: "1", audio: audio)]]))
+        answer(plugin.start, ["items": [item(id: "1", audio: audio)]])
         plugin.play(CallRecorder().makeCall())
 
         XCTAssertEqual(try rate(of: plugin), 1.5)

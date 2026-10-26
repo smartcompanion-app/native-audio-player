@@ -845,6 +845,66 @@ describe('the playback rate', () => {
   });
 });
 
+// An item can be played from where it is rather than downloaded first. The browser always could,
+// and this pins it down alongside iOS and Android -- see Item.audioUri in definitions.ts. The
+// audio comes from the test server in vitest.config.mts, so it really is fetched over HTTP.
+describe('remote items', () => {
+  const remoteUri = (path: string) => `${location.origin}/__audio/${path}`;
+
+  const fetched = async (): Promise<string[]> => (await fetch(remoteUri('requests'))).json();
+
+  const remoteHarness = async (paths: string[]): Promise<PlayerHarness> => {
+    const harness = await PlayerHarness.create();
+    paths.forEach((path, index) => (harness.items[index].audioUri = remoteUri(path)));
+    return harness;
+  };
+
+  it('starts a playlist of remote items, knowing their length', async () => {
+    const harness = await remoteHarness(['5.wav']);
+
+    expect(await harness.start()).toEqual({ id: '1' });
+
+    expect((await harness.player.getDuration()).value).toBeCloseTo(5, 1);
+    expect(await fetched()).toContain('/5.wav');
+  });
+
+  it('plays a remote item', async () => {
+    const harness = await remoteHarness(['5.wav']);
+    await harness.start();
+
+    await harness.player.play();
+    await vi.waitFor(async () => expect((await harness.player.getPosition()).value).toBeGreaterThan(0.3));
+
+    expect(harness.states).toEqual(['playing']);
+  });
+
+  it('moves to another remote item', async () => {
+    const harness = await remoteHarness(['5.wav', '3.wav']);
+    await harness.start();
+
+    expect(await harness.player.next()).toEqual({ id: '2' });
+
+    expect(harness.drain()).toEqual([{ state: 'skipped', id: '2' }]);
+    expect((await harness.player.getDuration()).value).toBeCloseTo(3, 1);
+  });
+
+  it('plays a remote item out to its end', async () => {
+    const harness = await remoteHarness(['1.wav']);
+    await harness.start();
+
+    await harness.player.play();
+    await vi.waitFor(() => expect(harness.states).toContain('completed'), { timeout: 10000, interval: 50 });
+
+    expect(harness.states).toEqual(['playing', 'completed']);
+  });
+
+  it('rejects a remote item that cannot be loaded', async () => {
+    const harness = await remoteHarness(['missing.wav']);
+
+    await expectRejection(harness.start(), 'start() with a remote item that is not there');
+  });
+});
+
 describe('audio output', () => {
   it('always reports external, since the browser picks the output itself', async () => {
     const harness = await PlayerHarness.create();

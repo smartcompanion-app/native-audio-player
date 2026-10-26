@@ -1,3 +1,4 @@
+import { Capacitor } from '@capacitor/core';
 import { NativeAudioPlayer } from '@smartcompanion/native-audio-player';
 import { downloadAndWrite } from './helpers';
 
@@ -7,6 +8,10 @@ import { downloadAndWrite } from './helpers';
 const basePath = '/media/';
 
 const filenames = ['elephant', 'leopard', 'crocodile'];
+
+// The same media streamed over HTTP from the server the e2e suite starts, see
+// test/media-server.js. An Android emulator reaches the machine it runs on through 10.0.2.2.
+const remoteBase = `http://${Capacitor.getPlatform() === 'android' ? '10.0.2.2' : 'localhost'}:4180/media/`;
 
 /**
  * Puts a position on the slider. The slider is a percentage and rounds to its step, so the seconds
@@ -44,20 +49,44 @@ const setActiveItem = async (id) => {
   });
 };
 
-const load = async () => {
-  const items = await Promise.all(
+/**
+ * Where the items come from: `local` downloads them into the app's storage first, which is all
+ * the native players could read before remote items were supported; `remote` hands the player
+ * http URLs to stream; `missing` hands it one that is not there.
+ */
+const itemsFrom = async (source) => {
+  return Promise.all(
     filenames.map(async (filename, index) => ({
       id: (index + 1).toString(),
       title: filename.charAt(0).toUpperCase() + filename.slice(1),
       subtitle: 'Animals',
-      audioUri: await downloadAndWrite(`${basePath}${filename}.mp3`, `${filename}.mp3`),
-      imageUri: await downloadAndWrite(`${basePath}${filename}.jpg`, `${filename}.jpg`),
+      audioUri:
+        source === 'local'
+          ? await downloadAndWrite(`${basePath}${filename}.mp3`, `${filename}.mp3`)
+          : `${remoteBase}${source === 'missing' ? 'missing' : filename}.mp3`,
+      imageUri:
+        source === 'local'
+          ? await downloadAndWrite(`${basePath}${filename}.jpg`, `${filename}.jpg`)
+          : `${remoteBase}${filename}.jpg`,
     })),
   );
+};
 
-  await NativeAudioPlayer.start({
-    items: items,
-  });
+const load = async (source = 'local') => {
+  const items = await itemsFrom(source);
+
+  try {
+    await NativeAudioPlayer.start({
+      items: items,
+    });
+    document.querySelector('#start-error').innerText = '';
+  } catch (error) {
+    // a playlist that could not be started leaves the controls disabled, and says why
+    document.querySelector('#start-error').innerText = `error: ${String(error)}`;
+    document.querySelector('#start-stop').removeAttribute('disabled');
+    document.querySelector('#start-stop').innerHTML = 'START';
+    return false;
+  }
 
   // the event only fires on changes, so the initial output has to be queried
   setAudioOutput((await NativeAudioPlayer.getAudioOutput()).output);
@@ -72,6 +101,25 @@ const load = async () => {
   select.innerHTML = items
     .map((item, index) => `<button class="${index == 0 ? 'active' : ''}" data-id="${item.id}">${item.title}</button>`)
     .join('');
+  return true;
+};
+
+const unload = async () => {
+  await NativeAudioPlayer.stop();
+  document.querySelector('#play-pause').setAttribute('disabled', '');
+  document.querySelector('#prev').setAttribute('disabled', '');
+  document.querySelector('#next').setAttribute('disabled', '');
+  document.querySelector('#position').setAttribute('disabled', '');
+  document.querySelector('#start-stop').innerHTML = 'START';
+  document.querySelector('#select').innerHTML = '';
+};
+
+/** Replaces whatever is playing with a playlist from somewhere else. */
+const reload = async (source) => {
+  await unload();
+  if (await load(source)) {
+    document.querySelector('#start-stop').innerHTML = 'STOP';
+  }
 };
 
 document.querySelector('#set-earpiece').addEventListener('click', () => {
@@ -95,18 +143,15 @@ document.querySelector('#play-pause').addEventListener('click', async (e) => {
 });
 document.querySelector('#start-stop').addEventListener('click', async (e) => {
   if (e.target.innerText == 'START') {
-    await load();
-    document.querySelector('#start-stop').innerHTML = 'STOP';
+    if (await load()) {
+      document.querySelector('#start-stop').innerHTML = 'STOP';
+    }
   } else {
-    await NativeAudioPlayer.stop();
-    document.querySelector('#play-pause').setAttribute('disabled', '');
-    document.querySelector('#prev').setAttribute('disabled', '');
-    document.querySelector('#next').setAttribute('disabled', '');
-    document.querySelector('#position').setAttribute('disabled', '');
-    document.querySelector('#start-stop').innerHTML = 'START';
-    document.querySelector('#select').innerHTML = '';
+    await unload();
   }
 });
+document.querySelector('#start-remote').addEventListener('click', () => reload('remote'));
+document.querySelector('#start-missing').addEventListener('click', () => reload('missing'));
 document.querySelector('#position').addEventListener('input', async () => {
   await NativeAudioPlayer.pause();
 });

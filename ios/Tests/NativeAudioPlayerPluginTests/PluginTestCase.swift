@@ -62,6 +62,34 @@ class PluginTestCase: XCTestCase {
         try super.tearDownWithError()
     }
 
+    // MARK: - Calls
+
+    /// Calls a plugin method and waits until it has answered. Loading an item is asynchronous --
+    /// remote audio has to arrive before it can be played -- so start(), next(), previous() and
+    /// select() answer after they return, and a test that asserts straight away would be
+    /// asserting on a call that is still in flight.
+    @discardableResult
+    func answer(
+        _ method: (CAPPluginCall) -> Void,
+        _ options: [String: Any] = [:],
+        with recorder: CallRecorder = CallRecorder(),
+        timeout: TimeInterval = 10
+    ) -> CallRecorder {
+        method(recorder.makeCall(options))
+        waitUntil(timeout: timeout) { recorder.answered }
+        XCTAssertTrue(recorder.answered, "the call was never answered")
+        return recorder
+    }
+
+    /// Loads the current item of a player and waits for the outcome.
+    func load(_ player: NativeAudioPlayer, timeout: TimeInterval = 10) -> Bool {
+        var outcome: Bool?
+        player.load { outcome = $0 }
+        waitUntil(timeout: timeout) { outcome != nil }
+        XCTAssertNotNil(outcome, "load() never finished")
+        return outcome ?? false
+    }
+
     // MARK: - Run loop
 
     /// Spins the run loop until the condition holds, which is what lets a player that is actually

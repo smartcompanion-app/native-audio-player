@@ -28,7 +28,7 @@ class NativeAudioPlayerStateTests: PluginTestCase {
         let audio = try writeAudioFile(at: "state-start.wav", seconds: 5)
         let plugin = RecordingPlugin()
 
-        plugin.start(CallRecorder().makeCall(["items": [item(id: "1", audio: audio)]]))
+        answer(plugin.start, ["items": [item(id: "1", audio: audio)]])
         let state = try state(of: plugin)
 
         XCTAssertEqual(state["id"] as? String, "1")
@@ -40,7 +40,7 @@ class NativeAudioPlayerStateTests: PluginTestCase {
     func testStateFollowsPlaybackAsItStartsAndStops() throws {
         let audio = try writeAudioFile(at: "state-playing.wav", seconds: 5)
         let plugin = RecordingPlugin()
-        plugin.start(CallRecorder().makeCall(["items": [item(id: "1", audio: audio)]]))
+        answer(plugin.start, ["items": [item(id: "1", audio: audio)]])
 
         plugin.play(CallRecorder().makeCall())
         XCTAssertEqual(try state(of: plugin)["state"] as? String, "playing")
@@ -57,9 +57,9 @@ class NativeAudioPlayerStateTests: PluginTestCase {
         let first = try writeAudioFile(at: "state-1.wav", seconds: 5)
         let second = try writeAudioFile(at: "state-2.wav", seconds: 3)
         let plugin = RecordingPlugin()
-        plugin.start(CallRecorder().makeCall(["items": [item(id: "1", audio: first), item(id: "2", audio: second)]]))
+        answer(plugin.start, ["items": [item(id: "1", audio: first), item(id: "2", audio: second)]])
 
-        plugin.next(CallRecorder().makeCall())
+        answer(plugin.next)
         let state = try state(of: plugin)
 
         XCTAssertEqual(state["id"] as? String, "2")
@@ -70,7 +70,7 @@ class NativeAudioPlayerStateTests: PluginTestCase {
     func testAnItemThatPlayedOutIsPausedOnItsStart() throws {
         let audio = try writeAudioFile(at: "state-completed.wav", seconds: 0.3)
         let plugin = RecordingPlugin()
-        plugin.start(CallRecorder().makeCall(["items": [item(id: "1", audio: audio)]]))
+        answer(plugin.start, ["items": [item(id: "1", audio: audio)]])
 
         plugin.play(CallRecorder().makeCall())
         waitUntil { plugin.states.contains("completed") }
@@ -85,7 +85,7 @@ class NativeAudioPlayerStateTests: PluginTestCase {
     func testStateAfterStopIsStoppedAgain() throws {
         let audio = try writeAudioFile(at: "state-stop.wav", seconds: 5)
         let plugin = RecordingPlugin()
-        plugin.start(CallRecorder().makeCall(["items": [item(id: "1", audio: audio)]]))
+        answer(plugin.start, ["items": [item(id: "1", audio: audio)]])
         plugin.play(CallRecorder().makeCall())
 
         plugin.stop(CallRecorder().makeCall())
@@ -100,7 +100,7 @@ class NativeAudioPlayerStateTests: PluginTestCase {
     func testAskingForTheStateReportsNothing() throws {
         let audio = try writeAudioFile(at: "state-quiet.wav", seconds: 5)
         let plugin = RecordingPlugin()
-        plugin.start(CallRecorder().makeCall(["items": [item(id: "1", audio: audio)]]))
+        answer(plugin.start, ["items": [item(id: "1", audio: audio)]])
 
         _ = try state(of: plugin)
 

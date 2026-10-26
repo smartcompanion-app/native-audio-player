@@ -1,5 +1,7 @@
 import { spawn } from 'node:child_process';
 
+import { startMediaServer } from './test/media-server.js';
+
 // Which implementation this run drives. The specs in test/contract are the same for all
 // three -- they only touch the example app's DOM, which is what makes them one contract
 // suite rather than three that happen to look alike.
@@ -12,6 +14,7 @@ const isBrowser = platform === 'browser';
 const PREVIEW_PORT = 4173;
 
 let preview;
+let mediaServer;
 
 /** Wait for the preview server to answer, so the session does not open on nothing. */
 const waitForPreview = async () => {
@@ -151,6 +154,9 @@ export const config = {
   specs: isBrowser ? ['./test/contract/**/*.test.js'] : ['./test/**/*.test.js'],
 
   onPrepare: async () => {
+    // the remote spec streams from this on every platform, so it runs for all three
+    mediaServer = await startMediaServer();
+
     if (!isBrowser) {
       return;
     }
@@ -164,6 +170,7 @@ export const config = {
 
   onComplete: () => {
     preview?.kill();
+    mediaServer?.close();
   },
 
   before: async () => {
