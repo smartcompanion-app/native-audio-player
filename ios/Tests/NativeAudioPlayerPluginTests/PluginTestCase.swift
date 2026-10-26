@@ -62,6 +62,23 @@ class PluginTestCase: XCTestCase {
         try super.tearDownWithError()
     }
 
+    // MARK: - Run loop
+
+    /// Spins the run loop until the condition holds, which is what lets a player that is actually
+    /// running get somewhere -- and its delegate and timers be called -- inside a synchronous test.
+    func waitUntil(timeout: TimeInterval = 5, _ condition: () -> Bool) {
+        let deadline = Date().addingTimeInterval(timeout)
+        while !condition() && Date() < deadline {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.05))
+        }
+    }
+
+    /// Spins the run loop for a while, for the tests that are about what does or does not happen
+    /// over a stretch of playback.
+    func spin(for seconds: TimeInterval) {
+        RunLoop.current.run(until: Date().addingTimeInterval(seconds))
+    }
+
     // MARK: - Fixtures
 
     /// A silent 16-bit mono WAV. Written at runtime so the repo stays free of

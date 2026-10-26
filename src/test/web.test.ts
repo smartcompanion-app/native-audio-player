@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import type { AudioPlayerChange, Item } from '../definitions';
+import type { AudioPlayerChange, AudioPlayerProgress, Item } from '../definitions';
 import { NativeAudioPlayerWeb } from '../web';
 
 import { createAudioUri, createUnloadableUri, revokeAudioUris } from './audio-fixture';
@@ -533,6 +533,169 @@ describe('getState', () => {
     await harness.player.getState();
 
     expect(harness.states).toEqual([]);
+  });
+});
+
+// The playhead was only reachable by polling getPosition(), which every app ended up doing for
+// itself. See the progress event in definitions.ts.
+describe('the progress event', () => {
+  const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+  /** Every progress event, in order. Registered on the harness's own player. */
+  const recordProgress = async (harness: PlayerHarness): Promise<AudioPlayerProgress[]> => {
+    const progress: AudioPlayerProgress[] = [];
+    await harness.player.addListener('progress', (event: AudioPlayerProgress) => {
+      progress.push(event);
+    });
+    return progress;
+  };
+
+  it('reports the playhead of the playing item about twice a second', async () => {
+    const harness = await PlayerHarness.create();
+    const progress = await recordProgress(harness);
+    await harness.start();
+
+    await harness.player.play();
+    await wait(1700);
+
+    // half a second apart by default, so three in 1.7 seconds -- give or take one either side
+    // for timers that do not land exactly
+    expect(progress.length).toBeGreaterThanOrEqual(2);
+    expect(progress.length).toBeLessThanOrEqual(4);
+
+    progress.forEach((event) => {
+      expect(event.id).toBe('1');
+      expect(event.duration).toBeCloseTo(LONG_ITEM_SECONDS, 1);
+    });
+
+    const positions = progress.map((event) => event.position);
+    expect(positions).toEqual([...positions].sort((a, b) => a - b));
+    expect(positions[positions.length - 1]).toBeGreaterThan(positions[0]);
+  });
+
+  it('reports at the interval start() was given', async () => {
+    const harness = await PlayerHarness.create();
+    const progress = await recordProgress(harness);
+    await harness.player.start({ items: harness.items, progressInterval: 0.2 });
+
+    await harness.player.play();
+    await wait(1100);
+
+    // five at 0.2 seconds, where the default would have managed two
+    expect(progress.length).toBeGreaterThanOrEqual(4);
+    expect(progress.length).toBeLessThanOrEqual(6);
+  });
+
+  it('falls back to the default for an interval that is not a positive number', async () => {
+    const harness = await PlayerHarness.create();
+    const progress = await recordProgress(harness);
+    await harness.player.start({ items: harness.items, progressInterval: 0 });
+
+    await harness.player.play();
+    await wait(1200);
+
+    expect(progress.length).toBeGreaterThanOrEqual(1);
+    expect(progress.length).toBeLessThanOrEqual(3);
+  });
+
+  it('reports nothing before playback starts', async () => {
+    const harness = await PlayerHarness.create();
+    const progress = await recordProgress(harness);
+    await harness.start();
+
+    await wait(1200);
+
+    expect(progress).toEqual([]);
+  });
+
+  it('stops reporting once paused', async () => {
+    const harness = await PlayerHarness.create();
+    const progress = await recordProgress(harness);
+    await harness.start();
+    await harness.player.play();
+    await vi.waitFor(() => expect(progress.length).toBeGreaterThan(0), { timeout: 2000 });
+
+    await harness.player.pause();
+    progress.length = 0;
+    await wait(1200);
+
+    expect(progress).toEqual([]);
+  });
+
+  it('starts again with the playback, at the same interval', async () => {
+    const harness = await PlayerHarness.create();
+    const progress = await recordProgress(harness);
+    await harness.start();
+    await harness.player.play();
+    await harness.player.pause();
+    await harness.player.play();
+
+    // a pause and a play inside one interval must not leave two timers running
+    await wait(1700);
+
+    expect(progress.length).toBeLessThanOrEqual(4);
+  });
+
+  it('stops reporting when the item is skipped away from', async () => {
+    const harness = await PlayerHarness.create();
+    const progress = await recordProgress(harness);
+    await harness.start();
+    await harness.player.play();
+
+    await harness.player.next();
+    progress.length = 0;
+    await wait(1200);
+
+    expect(progress).toEqual([]);
+  });
+
+  it('reports the item it is on after a skip', async () => {
+    const harness = await PlayerHarness.create();
+    const progress = await recordProgress(harness);
+    await harness.start();
+
+    await harness.player.next();
+    await harness.player.play();
+    await vi.waitFor(() => expect(progress.length).toBeGreaterThan(0), { timeout: 2000 });
+
+    expect(progress.every((event) => event.id === '2')).toBe(true);
+  });
+
+  it('stops reporting once the item played out', async () => {
+    const harness = await PlayerHarness.create(SHORT_ITEM_SECONDS);
+    const progress = await recordProgress(harness);
+    await harness.start();
+
+    await harness.player.play();
+    await vi.waitFor(() => expect(harness.states).toContain('completed'), { timeout: 10000, interval: 50 });
+    progress.length = 0;
+    await wait(1200);
+
+    expect(progress).toEqual([]);
+  });
+
+  it('stops reporting after stop', async () => {
+    const harness = await PlayerHarness.create();
+    const progress = await recordProgress(harness);
+    await harness.start();
+    await harness.player.play();
+
+    await harness.player.stop();
+    progress.length = 0;
+    await wait(1200);
+
+    expect(progress).toEqual([]);
+  });
+
+  it('is an event of its own, and adds nothing to audioPlayerChange', async () => {
+    const harness = await PlayerHarness.create();
+    await recordProgress(harness);
+    await harness.start();
+
+    await harness.player.play();
+    await wait(1200);
+
+    expect(harness.states).toEqual(['playing']);
   });
 });
 
