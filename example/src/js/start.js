@@ -101,10 +101,14 @@ const load = async (source = 'local') => {
   select.innerHTML = items
     .map((item, index) => `<button class="${index == 0 ? 'active' : ''}" data-id="${item.id}">${item.title}</button>`)
     .join('');
+  // last, once everything above is in place: the e2e suite waits for this to know which
+  // playlist the controls belong to
+  document.body.dataset.playlist = source;
   return true;
 };
 
 const unload = async () => {
+  delete document.body.dataset.playlist;
   await NativeAudioPlayer.stop();
   document.querySelector('#play-pause').setAttribute('disabled', '');
   document.querySelector('#prev').setAttribute('disabled', '');

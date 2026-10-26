@@ -30,6 +30,15 @@ describe("Remote items", () => {
 
   const startRemote = async () => {
     await (await browser.$("#start-remote")).click();
+    // The controls of the local playlist the app started with are enabled already, and so is
+    // its first item -- waiting on those alone passes before the swap has even begun. The click
+    // clears the marker synchronously, and the app sets it again once the remote playlist is up.
+    await browser.waitUntil(async function () {
+      return (await browser.execute(() => document.body.dataset.playlist)) === "remote";
+    }, {
+      timeout: 60000,
+      timeoutMsg: "The remote playlist never finished starting"
+    });
     await waitForControls();
     await waitForActiveItem("1");
     await clearEvents();
