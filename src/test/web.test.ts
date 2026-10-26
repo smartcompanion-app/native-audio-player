@@ -451,6 +451,81 @@ describe('an item that plays to its end', () => {
   });
 });
 
+// The state is otherwise only observable through audioPlayerChange, so an app that mounts late
+// or missed an event has nothing to recover it from. See getState in definitions.ts.
+describe('getState', () => {
+  it('reports stopped before start, with nothing loaded', async () => {
+    const harness = await PlayerHarness.create();
+
+    expect(await harness.player.getState()).toEqual({ id: '', state: 'stopped', position: 0, duration: 0 });
+  });
+
+  it('reports the first item as paused once started', async () => {
+    const harness = await PlayerHarness.create();
+    await harness.start();
+
+    const state = await harness.player.getState();
+
+    expect(state).toMatchObject({ id: '1', state: 'paused', position: 0 });
+    expect(state.duration).toBeCloseTo(LONG_ITEM_SECONDS, 1);
+  });
+
+  it('follows playback as it starts and stops', async () => {
+    const harness = await PlayerHarness.create();
+    await harness.start();
+
+    await harness.player.play();
+    expect((await harness.player.getState()).state).toBe('playing');
+
+    await vi.waitFor(async () => expect((await harness.player.getState()).position).toBeGreaterThan(0));
+    await harness.player.pause();
+
+    const paused = await harness.player.getState();
+    expect(paused.state).toBe('paused');
+    expect(paused.position).toBe((await harness.player.getPosition()).value);
+  });
+
+  it('follows the selected item', async () => {
+    const harness = await PlayerHarness.create();
+    await harness.start();
+
+    await harness.player.next();
+    expect(await harness.player.getState()).toMatchObject({ id: '2', state: 'paused', position: 0 });
+
+    await harness.player.select({ id: '3' });
+    expect((await harness.player.getState()).id).toBe('3');
+  });
+
+  it('reports an item that played out as paused on it, rewound to its start', async () => {
+    const harness = await PlayerHarness.create(SHORT_ITEM_SECONDS);
+    await harness.start();
+
+    await harness.player.play();
+    await vi.waitFor(() => expect(harness.states).toContain('completed'), { timeout: 10000, interval: 50 });
+
+    expect(await harness.player.getState()).toMatchObject({ id: '1', state: 'paused', position: 0 });
+  });
+
+  it('reports stopped again after stop', async () => {
+    const harness = await PlayerHarness.create();
+    await harness.start();
+    await harness.player.play();
+
+    await harness.player.stop();
+
+    expect(await harness.player.getState()).toEqual({ id: '', state: 'stopped', position: 0, duration: 0 });
+  });
+
+  it('reports nothing of its own, since asking is not a change', async () => {
+    const harness = await PlayerHarness.create();
+    await harness.start();
+
+    await harness.player.getState();
+
+    expect(harness.states).toEqual([]);
+  });
+});
+
 describe('audio output', () => {
   it('always reports external, since the browser picks the output itself', async () => {
     const harness = await PlayerHarness.create();

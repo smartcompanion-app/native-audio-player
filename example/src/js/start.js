@@ -117,6 +117,14 @@ document.querySelector('#position').addEventListener('change', async (e) => {
   // seekTo resumes on its own, so there is no play() to make here
   await NativeAudioPlayer.seekTo({ position });
 });
+document.querySelector('#get-state').addEventListener('click', async () => {
+  const state = document.querySelector('#state');
+  try {
+    state.innerText = JSON.stringify(await NativeAudioPlayer.getState());
+  } catch (error) {
+    state.innerText = JSON.stringify({ error: String(error) });
+  }
+});
 document.querySelector('#select').addEventListener('click', async (e) => {
   const id = e.target.getAttribute('data-id');
   if (id) {

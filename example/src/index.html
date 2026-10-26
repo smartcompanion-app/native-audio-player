@@ -48,6 +48,13 @@
       <div class="controls">
         <button disabled id="start-stop">STOP</button>
       </div>
+
+      <!-- What getState() answered last, as JSON, so the e2e tests can read the player instead
+           of only following its events. -->
+      <div class="controls">
+        <button id="get-state">STATE</button>
+      </div>
+      <pre id="state" hidden></pre>
     </main>
   </body>
 </html>
