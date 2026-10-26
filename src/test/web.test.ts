@@ -699,6 +699,152 @@ describe('the progress event', () => {
   });
 });
 
+// Spoken word -- audio guides, narration -- is often listened to faster or slower than it was
+// recorded. See setRate in definitions.ts.
+describe('the playback rate', () => {
+  const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+  it('plays at normal speed until told otherwise', async () => {
+    const harness = await PlayerHarness.create();
+
+    expect(await harness.player.getRate()).toEqual({ value: 1 });
+
+    await harness.start();
+    expect(harness.audioElement?.playbackRate).toBe(1);
+  });
+
+  it('reports the rate it was given', async () => {
+    const harness = await PlayerHarness.create();
+    await harness.start();
+
+    await harness.player.setRate({ value: 1.5 });
+
+    expect(await harness.player.getRate()).toEqual({ value: 1.5 });
+    expect(harness.audioElement?.playbackRate).toBe(1.5);
+  });
+
+  it('plays the audio at that rate', async () => {
+    const harness = await PlayerHarness.create();
+    await harness.start();
+    await harness.player.setRate({ value: 2 });
+
+    await harness.player.play();
+    await wait(1000);
+    await harness.player.pause();
+
+    // two seconds of audio in one second of playback, with room for when the clock started
+    const position = (await harness.player.getPosition()).value;
+    expect(position).toBeGreaterThan(1.5);
+    expect(position).toBeLessThan(2.6);
+  });
+
+  it('keeps the pitch, which is what makes faster speech listenable', async () => {
+    const harness = await PlayerHarness.create();
+    await harness.start();
+
+    await harness.player.setRate({ value: 2 });
+
+    expect(harness.audioElement?.preservesPitch).not.toBe(false);
+  });
+
+  it('can be set before start, and applies once something is loaded', async () => {
+    const harness = await PlayerHarness.create();
+
+    await harness.player.setRate({ value: 0.5 });
+    await harness.start();
+
+    expect(harness.audioElement?.playbackRate).toBe(0.5);
+    expect(await harness.player.getRate()).toEqual({ value: 0.5 });
+  });
+
+  it('survives a change of item, which loads new audio', async () => {
+    const harness = await PlayerHarness.create();
+    await harness.start();
+    await harness.player.setRate({ value: 2 });
+
+    await harness.player.next();
+    expect(harness.audioElement?.playbackRate).toBe(2);
+
+    await harness.player.select({ id: '1' });
+    expect(harness.audioElement?.playbackRate).toBe(2);
+
+    await harness.player.previous();
+    expect(harness.audioElement?.playbackRate).toBe(2);
+  });
+
+  it('survives a stop and a new start', async () => {
+    const harness = await PlayerHarness.create();
+    await harness.start();
+    await harness.player.setRate({ value: 1.5 });
+
+    await harness.player.stop();
+    await harness.start();
+
+    expect(harness.audioElement?.playbackRate).toBe(1.5);
+    expect(await harness.player.getRate()).toEqual({ value: 1.5 });
+  });
+
+  it('rejects a rate outside 0.5 to 2, and keeps the one it had', async () => {
+    const harness = await PlayerHarness.create();
+    await harness.start();
+    await harness.player.setRate({ value: 1.5 });
+
+    for (const value of [0.25, 2.5, 0, -1, Number.NaN]) {
+      await expectRejection(harness.player.setRate({ value }), `setRate(${value})`);
+    }
+    await expectRejection(harness.player.setRate({} as { value: number }), 'setRate() without a value');
+
+    expect(await harness.player.getRate()).toEqual({ value: 1.5 });
+    expect(harness.audioElement?.playbackRate).toBe(1.5);
+  });
+
+  it('accepts both ends of the range', async () => {
+    const harness = await PlayerHarness.create();
+    await harness.start();
+
+    await harness.player.setRate({ value: 0.5 });
+    expect(await harness.player.getRate()).toEqual({ value: 0.5 });
+
+    await harness.player.setRate({ value: 2 });
+    expect(await harness.player.getRate()).toEqual({ value: 2 });
+  });
+
+  it('reports nothing, since the playback state does not change', async () => {
+    const harness = await PlayerHarness.create();
+    await harness.start();
+    await harness.player.play();
+    harness.drain();
+
+    await harness.player.setRate({ value: 2 });
+
+    expect(harness.drain()).toEqual([]);
+    expect(harness.isPlaying).toBe(true);
+  });
+
+  it('tells the browser media control the rate, so its scrubber keeps pace', async () => {
+    const positionStates: any[] = [];
+    const setPositionState = vi
+      .spyOn(navigator.mediaSession, 'setPositionState')
+      .mockImplementation((state?: MediaPositionState) => {
+        positionStates.push(state);
+      });
+
+    try {
+      const harness = await PlayerHarness.create();
+      await harness.start();
+      positionStates.length = 0;
+
+      await harness.player.setRate({ value: 2 });
+      await harness.player.play();
+
+      expect(positionStates.length).toBeGreaterThan(0);
+      expect(positionStates[positionStates.length - 1].playbackRate).toBe(2);
+    } finally {
+      setPositionState.mockRestore();
+    }
+  });
+});
+
 describe('audio output', () => {
   it('always reports external, since the browser picks the output itself', async () => {
     const harness = await PlayerHarness.create();

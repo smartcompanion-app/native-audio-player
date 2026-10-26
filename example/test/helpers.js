@@ -230,6 +230,51 @@ export const readProgress = async () => {
       id: progress.id,
       position: Number(progress.position),
       duration: Number(progress.duration),
+      at: Number(progress.at),
     };
   });
+};
+
+/**
+ * Click one of the app's rate buttons and return what it then shows: the rate getRate() answered,
+ * or the error setRate() was refused with.
+ */
+export const chooseRate = async (rate) => {
+  await browser.execute(() => {
+    document.querySelector("#rate-value").innerText = "";
+  });
+  await (await browser.$(`#rate > [data-rate="${rate}"]`)).click();
+
+  let shown = "";
+  await browser.waitUntil(async function () {
+    shown = await browser.execute(() => document.querySelector("#rate-value").innerText.trim());
+    return shown !== "";
+  }, {
+    timeout: 20000,
+    timeoutMsg: `Choosing ${rate}x was never answered`
+  });
+
+  return shown;
+};
+
+/**
+ * How many seconds of audio play per second of real time, measured from two progress events about
+ * `seconds` apart. Both ends are timestamped by the app as the events arrive, so the webdriver
+ * round trips in between do not count.
+ */
+export const measurePlaybackSpeed = async (seconds = 3) => {
+  const waitForNextProgress = async (after) => {
+    let progress;
+    await browser.waitUntil(async () => {
+      progress = await readProgress();
+      return progress.count > after;
+    }, { timeout: 10000, interval: 50, timeoutMsg: "No progress was reported while playing" });
+    return progress;
+  };
+
+  const first = await waitForNextProgress((await readProgress()).count);
+  await browser.pause(seconds * 1000);
+  const last = await waitForNextProgress((await readProgress()).count);
+
+  return (last.position - first.position) / ((last.at - first.at) / 1000);
 };
