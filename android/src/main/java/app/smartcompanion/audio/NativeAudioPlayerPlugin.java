@@ -8,6 +8,7 @@ import android.media.AudioDeviceInfo;
 import android.media.AudioManager;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 import androidx.annotation.Nullable;
 import androidx.media3.common.MediaItem;
@@ -70,6 +71,47 @@ public class NativeAudioPlayerPlugin extends Plugin {
      * change, or stop() -- so the pause the player raises alongside it is not reported twice.
      */
     protected boolean pausedEventAlreadySent;
+
+    /** How often the progress event reports while playing, set by start(). */
+    protected long progressIntervalMillis = NativeAudioPlayer.DEFAULT_PROGRESS_INTERVAL_MILLIS;
+
+    /**
+     * Posts the progress ticks on the looper the controller lives on, which is the only one it may
+     * be read from. Null until playback first starts.
+     */
+    @Nullable
+    protected Handler progressHandler;
+
+    /**
+     * Reports the playhead and schedules the next report, for as long as the audio runs. A tick
+     * that finds it stopped ends the reporting itself, so a stop that reached no callback cannot
+     * leave it running.
+     */
+    protected final Runnable progressTick = new Runnable() {
+        @Override
+        public void run() {
+            MediaController controller = mediaController;
+            MediaItem mediaItem = controller != null ? controller.getCurrentMediaItem() : null;
+
+            if (controller == null || mediaItem == null || !controller.isPlaying()) {
+                stopProgress();
+                return;
+            }
+
+            try {
+                notifyListeners(
+                    "progress",
+                    nativeAudioPlayer.prepareProgressEvent(mediaItem, controller.getCurrentPosition(), controller.getDuration())
+                );
+            } catch (Exception e) {
+                Log.e("NATIVE_AUDIO_PLAYER", "Could not trigger progress event: " + e.getMessage());
+            }
+
+            if (progressHandler != null) {
+                progressHandler.postDelayed(this, progressIntervalMillis);
+            }
+        }
+    };
 
     protected Player.Listener playerListener = new Player.Listener() {
         @Override
@@ -162,6 +204,12 @@ public class NativeAudioPlayerPlugin extends Plugin {
                 return;
             }
 
+            if (isPlaying) {
+                startProgress();
+            } else {
+                stopProgress();
+            }
+
             // A transient focus loss -- an incoming call, or another app briefly taking the
             // audio -- suppresses playback without clearing playWhenReady, so media3 starts
             // again by itself once focus comes back. The plugin does not resume on its own, so
@@ -236,6 +284,7 @@ public class NativeAudioPlayerPlugin extends Plugin {
         ListenableFuture<MediaController> controllerFuture = new MediaController.Builder(context, sessionToken).buildAsync();
 
         mediaItems = nativeAudioPlayer.fromJson(call.getData());
+        progressIntervalMillis = NativeAudioPlayer.progressIntervalMillis(call.getDouble("progressInterval"));
 
         controllerFuture.addListener(
             () -> attachController(controllerFuture, call),
@@ -594,7 +643,32 @@ public class NativeAudioPlayerPlugin extends Plugin {
         }
     }
 
+    /** Reports the playhead from one interval from now, restarting rather than adding a timer. */
+    protected void startProgress() {
+        stopProgress();
+
+        // this runs from inside the player listener, ahead of the playing event, so it must not
+        // throw on a controller that has no looper to offer
+        Looper looper = mediaController != null ? mediaController.getApplicationLooper() : null;
+        if (looper == null) {
+            return;
+        }
+
+        if (progressHandler == null || progressHandler.getLooper() != looper) {
+            progressHandler = new Handler(looper);
+        }
+        progressHandler.postDelayed(progressTick, progressIntervalMillis);
+    }
+
+    protected void stopProgress() {
+        if (progressHandler != null) {
+            progressHandler.removeCallbacks(progressTick);
+        }
+    }
+
     protected void releaseController() {
+        stopProgress();
+
         if (mediaController != null) {
             // unregister while the controller is still reachable -- doing this after
             // the field was nulled meant the guard below short circuited and the

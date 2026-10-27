@@ -181,7 +181,7 @@ describe("The audio player contract", () => {
     expect(positions.some((position) => !Number.isInteger(position))).toBe(true);
 
     // and they are still seconds of this item rather than some other unit: they run forward,
-    // and the app polls twice a second, so three of them cannot cover much audio
+    // and progress arrives twice a second, so three of them cannot cover much audio
     expect(positions).toEqual([...positions].sort((a, b) => a - b));
     expect(positions[positions.length - 1] - positions[0]).toBeLessThan(10);
 

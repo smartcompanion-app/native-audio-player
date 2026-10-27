@@ -60,6 +60,16 @@ const updateMediaSessionPosition = (audioElement: HTMLAudioElement) => {
 };
 
 /**
+ * How often the progress event reports by default, and what an interval start() was given turns
+ * into -- see StartOptions.progressInterval in definitions.ts.
+ */
+const DEFAULT_PROGRESS_INTERVAL_MS = 500;
+
+const progressIntervalMillis = (seconds: number | undefined): number => {
+  return typeof seconds === 'number' && seconds > 0 ? seconds * 1000 : DEFAULT_PROGRESS_INTERVAL_MS;
+};
+
+/**
  * A browser media control is not a caller that can handle a rejection -- there is nowhere to
  * return the failure to. Refusing before anything is loaded is right, but it has to stay
  * quiet: an unhandled rejection reaches an app's error reporting as a crash it cannot act on.
@@ -71,6 +81,8 @@ const ignoreUnreachablePlayer = (error: unknown) => {
 export class NativeAudioPlayerWeb extends WebPlugin implements NativeAudioPlayerPlugin {
   protected items: Item[] = [];
   protected currentIndex = 0;
+  protected progressIntervalMs = DEFAULT_PROGRESS_INTERVAL_MS;
+  protected progressTimer: ReturnType<typeof setInterval> | undefined;
 
   constructor() {
     super();
@@ -132,6 +144,7 @@ export class NativeAudioPlayerWeb extends WebPlugin implements NativeAudioPlayer
 
   async start(options: StartOptions): Promise<{ id: string }> {
     this.currentIndex = 0;
+    this.progressIntervalMs = progressIntervalMillis(options.progressInterval);
     this.items = JSON.parse(JSON.stringify(options.items));
     return this.loadAudio(this.items[this.currentIndex]);
   }
@@ -148,6 +161,7 @@ export class NativeAudioPlayerWeb extends WebPlugin implements NativeAudioPlayer
       audioElement.pause();
       audioElement.remove();
     }
+    this.stopProgress();
     updateMediaSessionPlaybackState('none');
     this.items = [];
   }
@@ -159,6 +173,38 @@ export class NativeAudioPlayerWeb extends WebPlugin implements NativeAudioPlayer
     updateMediaSessionPlaybackState('playing');
     updateMediaSessionPosition(audioElement);
     this.notifyListeners('audioPlayerChange', { id: this.items[this.currentIndex].id, state: 'playing' });
+    this.startProgress();
+  }
+
+  /**
+   * Reports the playhead every interval for as long as the audio runs. A tick that finds it
+   * stopped ends the reporting itself, so every way the audio can stop -- a pause, a skip that
+   * replaced the element, the item running out, stop() -- ends it without each having to.
+   */
+  protected startProgress(): void {
+    // restarted rather than added to: play() can come round again inside one interval
+    this.stopProgress();
+
+    this.progressTimer = setInterval(() => {
+      const audioElement = this.getAudioElement();
+      const item = this.items[this.currentIndex];
+
+      if (!audioElement || !item || audioElement.paused || audioElement.ended) {
+        this.stopProgress();
+        return;
+      }
+
+      this.notifyListeners('progress', {
+        id: item.id,
+        position: audioElement.currentTime,
+        duration: audioElement.duration > 0 ? audioElement.duration : 0,
+      });
+    }, this.progressIntervalMs);
+  }
+
+  protected stopProgress(): void {
+    clearInterval(this.progressTimer);
+    this.progressTimer = undefined;
   }
 
   async pause(): Promise<void> {
@@ -176,6 +222,7 @@ export class NativeAudioPlayerWeb extends WebPlugin implements NativeAudioPlayer
     }
 
     audioElement.pause();
+    this.stopProgress();
     updateMediaSessionPlaybackState('paused');
     updateMediaSessionPosition(audioElement);
     this.notifyListeners('audioPlayerChange', { id: this.items[this.currentIndex].id, state: 'paused' });

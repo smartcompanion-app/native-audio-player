@@ -15,15 +15,6 @@ class NativeAudioPlayerStateTests: PluginTestCase {
         return try XCTUnwrap(recorder.resolved)
     }
 
-    /// Spins the run loop until the condition holds, which is what lets a player that is actually
-    /// running get somewhere -- and its delegate be called -- inside a synchronous test.
-    private func waitUntil(timeout: TimeInterval = 5, _ condition: () -> Bool) {
-        let deadline = Date().addingTimeInterval(timeout)
-        while !condition() && Date() < deadline {
-            RunLoop.current.run(until: Date().addingTimeInterval(0.05))
-        }
-    }
-
     func testStateBeforeStartIsStoppedWithNothingLoaded() throws {
         let state = try state(of: RecordingPlugin())
 

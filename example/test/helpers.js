@@ -141,8 +141,8 @@ export const readPosition = async () => {
 
 /**
  * The seconds the plugin last reported, which the app parks on the slider -- the slider value
- * itself is a rounded percentage and cannot show them. Written while playing only, so this is
- * NaN until the app has polled at least once.
+ * itself is a rounded percentage and cannot show them. Written by every progress event and
+ * every state change other than playing, so this is NaN until one of those has arrived.
  */
 export const readReportedSeconds = async () => {
   return browser.execute(() => ({
@@ -153,7 +153,8 @@ export const readReportedSeconds = async () => {
 
 /**
  * Samples what the plugin reports while the audio runs, until `count` different positions have
- * been seen. The app polls twice a second, so this takes about half a second per sample.
+ * been seen. The progress event arrives twice a second, so this takes about half a second per
+ * sample.
  */
 export const sampleReportedPositions = async (count) => {
   const positions = [];
@@ -214,4 +215,21 @@ export const readState = async () => {
     throw new Error(`getState() rejected: ${state.error}`);
   }
   return state;
+};
+
+/**
+ * What the app recorded from the progress event: how many have arrived, and the last one's
+ * payload. Counting is what lets a spec tell a player that stopped reporting from one that
+ * reports the same position again.
+ */
+export const readProgress = async () => {
+  return browser.execute(() => {
+    const progress = document.querySelector("#progress").dataset;
+    return {
+      count: Number(progress.count ?? 0),
+      id: progress.id,
+      position: Number(progress.position),
+      duration: Number(progress.duration),
+    };
+  });
 };

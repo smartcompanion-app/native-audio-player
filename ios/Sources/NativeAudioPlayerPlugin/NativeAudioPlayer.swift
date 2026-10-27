@@ -60,6 +60,17 @@ import UIKit
     /// call, Siri, or another app taking the audio session.
     var onInterrupted: (() -> Void)?
 
+    /// Called every `progressInterval` seconds while the audio runs, see the progress event in
+    /// definitions.ts.
+    var onProgress: (() -> Void)?
+
+    /// How often `onProgress` is called, in seconds. Set before playback starts; a running timer
+    /// keeps the interval it was started with.
+    var progressInterval: TimeInterval = NativeAudioPlayer.defaultProgressInterval
+
+    /// Driven from NativeAudioPlayerProgress.swift, which is why it is not private.
+    var progressTimer: DispatchSourceTimer?
+
     /// The output the session is routed to right now, which is not necessarily the one that
     /// was requested: the earpiece/speaker override is skipped while an external device is
     /// connected, see `load()`.
@@ -92,6 +103,7 @@ import UIKit
 
     deinit {
         NotificationCenter.default.removeObserver(self)
+        stopProgress()
 
         // only tear down when this instance still owns a player: an instance that
         // never loaded must not deactivate the session or clear the lock screen
@@ -184,6 +196,7 @@ import UIKit
 
             audioPlayer?.stop()
             playWhenReady = false
+            stopProgress()
             audioPlayer = try AVAudioPlayer(contentsOf: url)
             audioPlayer?.prepareToPlay()
             audioPlayer?.delegate = self
@@ -206,6 +219,7 @@ import UIKit
         audioPlayer?.stop()
         audioPlayer = nil
         playWhenReady = false
+        stopProgress()
 
         // remove player from lock screen
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
@@ -225,6 +239,7 @@ import UIKit
             playWhenReady = true
             audioPlayer?.play()
             updateLockScreen()
+            startProgress()
         }
     }
 
@@ -233,6 +248,7 @@ import UIKit
         // to play, and leaving this set would have the next interruption report a pause that
         // interrupted nothing
         playWhenReady = false
+        stopProgress()
 
         if audioPlayer?.isPlaying == true {
             audioPlayer?.pause()
@@ -359,6 +375,7 @@ import UIKit
             // the item ran out, so nothing is asking for playback any more -- left set, the
             // next interruption would report a pause that interrupted nothing
             playWhenReady = false
+            stopProgress()
 
             // an item that played out has to be ready to play again, rather than parked at its
             // end where play() would have nothing left to play -- see AudioPlayerState in

@@ -8,25 +8,25 @@ const basePath = '/media/';
 
 const filenames = ['elephant', 'leopard', 'crocodile'];
 
-const updatePosition = async () => {
-  const duration = (await NativeAudioPlayer.getDuration()).value;
-  const position = (await NativeAudioPlayer.getPosition()).value;
-  const value = (position / duration) * 100;
+/**
+ * Puts a position on the slider. The slider is a percentage and rounds to its step, so the seconds
+ * the player reported are kept next to it -- the e2e suite has no other way to see what the
+ * plugin actually returns.
+ */
+const showPosition = (position, duration) => {
   const slider = document.querySelector('#position');
-  slider.value = value;
-
-  // the slider is a percentage and rounds to its step, so the seconds the player reported are
-  // kept next to it -- the e2e suite has no other way to see what the plugin actually returns
+  slider.value = duration > 0 ? (position / duration) * 100 : 0;
   slider.dataset.position = position;
   slider.dataset.duration = duration;
+};
 
-  if (duration >= position) {
-    setTimeout(() => {
-      if (document.querySelector('#play-pause').innerText != 'PLAY') {
-        updatePosition();
-      }
-    }, 500);
-  }
+/**
+ * Asks once, for the changes the progress event does not cover: it only reports while the audio
+ * runs, and a pause does not always leave the player where it was -- an item that plays out
+ * rewinds itself to the start, and a skip lands on the start of another.
+ */
+const updatePosition = async () => {
+  showPosition((await NativeAudioPlayer.getPosition()).value, (await NativeAudioPlayer.getDuration()).value);
 };
 
 const setAudioOutput = (output) => {
@@ -137,6 +137,19 @@ document.querySelector('#select').addEventListener('click', async (e) => {
     setAudioOutput(data.output);
   });
 
+  // follows the playhead while the audio runs, which this app used to poll getPosition() for.
+  // Every event is counted on #progress, so the e2e suite can tell a player that stopped
+  // reporting from one that keeps reporting the same position.
+  await NativeAudioPlayer.addListener('progress', (data) => {
+    const progress = document.querySelector('#progress');
+    progress.dataset.count = Number(progress.dataset.count ?? 0) + 1;
+    progress.dataset.id = data.id;
+    progress.dataset.position = data.position;
+    progress.dataset.duration = data.duration;
+
+    showPosition(data.position, data.duration);
+  });
+
   await NativeAudioPlayer.addListener('audioPlayerChange', async (data) => {
     // recorded before anything acts on it, so the log is the order the plugin reported and
     // not the order this app got round to handling
@@ -145,12 +158,8 @@ document.querySelector('#select').addEventListener('click', async (e) => {
 
     if (data.state == 'playing') {
       document.querySelector('#play-pause').innerHTML = 'PAUSE';
-      await updatePosition();
     } else if (data.state == 'paused') {
       document.querySelector('#play-pause').innerHTML = 'PLAY';
-      // the poller only runs while playing, so the last position it read stands until
-      // something asks again -- and a pause does not always leave the player where it
-      // was: an item that plays out rewinds itself to the start
       await updatePosition();
     } else if (data.state == 'stopped') {
       // stop() can come mid-playback, and no paused comes with it -- so the button is put back
