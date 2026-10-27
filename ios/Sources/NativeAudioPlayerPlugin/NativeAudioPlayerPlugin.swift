@@ -18,6 +18,7 @@ public class NativeAudioPlayerPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "seekTo", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "getPosition", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "getDuration", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "getState", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "getAudioOutput", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "setEarpiece", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "setSpeaker", returnType: CAPPluginReturnPromise)
@@ -107,7 +108,9 @@ public class NativeAudioPlayerPlugin: CAPPlugin, CAPBridgedPlugin {
     }
 
     @objc func stop(_ call: CAPPluginCall) {
-        onPause()
+        // reported whatever was happening, since clearing the playlist is a change either way --
+        // and as the one stopped, rather than a paused for the playback it ends as well
+        self.notifyListeners("audioPlayerChange", data: ["id": player.currentId, "state": "stopped"])
         player.stop()
         removeRemoteCommandTargets()
         call.resolve()
@@ -144,8 +147,8 @@ public class NativeAudioPlayerPlugin: CAPPlugin, CAPBridgedPlugin {
         // pauses while a slider is dragged calls this on every input event, which is many
         // times over one gesture, and only the first of them stops anything.
         //
-        // stop() reports its pause whatever was happening, since clearing the playlist is a
-        // change either way, and so this does not go through onPause's guard.
+        // stop() reports stopped whatever was happening, since clearing the playlist is a
+        // change either way, and so it does not come through here.
         if player.audioPlayer?.isPlaying == true {
             onPause()
         }
@@ -157,7 +160,7 @@ public class NativeAudioPlayerPlugin: CAPPlugin, CAPBridgedPlugin {
         let id = call.getString("id") ?? ""
 
         if player.select(id) {
-            self.notifyListeners("audioPlayerChange", data: ["id": player.currentId, "state": "skip"])
+            self.notifyListeners("audioPlayerChange", data: ["id": player.currentId, "state": "skipped"])
             call.resolve(["id": player.currentId])
         } else {
             call.reject("could not switch to item with given id")
@@ -214,6 +217,23 @@ public class NativeAudioPlayerPlugin: CAPPlugin, CAPBridgedPlugin {
 
     @objc func getDuration(_ call: CAPPluginCall) {
         call.resolve(["value": player.duration])
+    }
+
+    /// Nothing loaded is an answer rather than a failure, see getState in definitions.ts. The
+    /// playlist outlives stop() on the player, so it is the missing audio player that says
+    /// nothing is loaded -- currentId would still name the item that was.
+    @objc func getState(_ call: CAPPluginCall) {
+        guard let audioPlayer = player.audioPlayer else {
+            call.resolve(["id": "", "state": "stopped", "position": 0.0, "duration": 0.0])
+            return
+        }
+
+        call.resolve([
+            "id": player.currentId,
+            "state": audioPlayer.isPlaying ? "playing" : "paused",
+            "position": player.position,
+            "duration": player.duration
+        ])
     }
 
     @objc func getAudioOutput(_ call: CAPPluginCall) {
@@ -342,7 +362,7 @@ extension NativeAudioPlayerPlugin {
 
     private func onNext() -> Bool {
         if player.next() {
-            self.notifyListeners("audioPlayerChange", data: ["id": player.currentId, "state": "skip"])
+            self.notifyListeners("audioPlayerChange", data: ["id": player.currentId, "state": "skipped"])
             return true
         } else {
             return false
@@ -351,7 +371,7 @@ extension NativeAudioPlayerPlugin {
 
     private func onPrevious() -> Bool {
         if player.previous() {
-            self.notifyListeners("audioPlayerChange", data: ["id": player.currentId, "state": "skip"])
+            self.notifyListeners("audioPlayerChange", data: ["id": player.currentId, "state": "skipped"])
             return true
         } else {
             return false

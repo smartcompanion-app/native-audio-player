@@ -93,7 +93,7 @@ public class NativeAudioPlayerPlugin extends Plugin {
             }
 
             try {
-                JSObject json = nativeAudioPlayer.preparePlayerEvent("skip", mediaItem);
+                JSObject json = nativeAudioPlayer.preparePlayerEvent("skipped", mediaItem);
                 // The new item is selected but not playing, so skipping away from a playing item
                 // has to stop it -- and that stop is part of the skip rather than a change of
                 // its own. A transition reports one state, see AudioPlayerState in
@@ -257,6 +257,9 @@ public class NativeAudioPlayerPlugin extends Plugin {
             mediaController = controllerFuture.get();
             //mediaController.setRepeatMode(Player.REPEAT_MODE_OFF);
             mediaController.setMediaItems(mediaItems);
+            // without this the item is only prepared by the first play(), and until then the
+            // player has no duration to report -- iOS and the web know it once start() resolves
+            mediaController.prepare();
 
             registerPlayerEvents();
             call.resolve(nativeAudioPlayer.prepareIdItem(Objects.requireNonNull(mediaController.getCurrentMediaItem())));
@@ -289,7 +292,7 @@ public class NativeAudioPlayerPlugin extends Plugin {
                 pausedEventAlreadySent = mediaController.isPlaying();
                 notifyListeners(
                     "audioPlayerChange",
-                    nativeAudioPlayer.preparePlayerEvent("paused", Objects.requireNonNull(mediaController.getCurrentMediaItem()))
+                    nativeAudioPlayer.preparePlayerEvent("stopped", Objects.requireNonNull(mediaController.getCurrentMediaItem()))
                 );
                 mediaController.pause();
                 mediaController.stop();
@@ -432,6 +435,35 @@ public class NativeAudioPlayerPlugin extends Plugin {
         } else {
             result.put("value", 0.0);
         }
+        call.resolve(result);
+    }
+
+    /**
+     * Nothing loaded is an answer rather than a failure, see getState in definitions.ts -- which
+     * is the case without a controller, and with one that holds no item.
+     * <p>
+     * isPlaying rather than getPlayWhenReady, so this agrees with the audioPlayerChange events,
+     * which onIsPlayingChanged reports.
+     */
+    @PluginMethod
+    public void getState(PluginCall call) {
+        MediaItem mediaItem = mediaController != null ? mediaController.getCurrentMediaItem() : null;
+        JSObject result = new JSObject();
+
+        if (mediaItem == null) {
+            result.put("id", "");
+            result.put("state", "stopped");
+            result.put("position", 0.0);
+            result.put("duration", 0.0);
+        } else {
+            long duration = mediaController.getDuration();
+            result.put("id", mediaItem.mediaId);
+            result.put("state", mediaController.isPlaying() ? "playing" : "paused");
+            result.put("position", mediaController.getCurrentPosition() / 1000.0);
+            // C.TIME_UNSET while the duration is not known yet, as in getDuration()
+            result.put("duration", duration > 0 ? duration / 1000.0 : 0.0);
+        }
+
         call.resolve(result);
     }
 

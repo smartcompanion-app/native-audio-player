@@ -188,3 +188,30 @@ export const seekToPercent = async (percent) => {
     slider.dispatchEvent(new Event("change", { bubbles: true }));
   }, percent);
 };
+
+/**
+ * Ask the plugin for its state through the app's STATE button, and return what getState()
+ * answered. The previous answer is cleared first, so what comes back is this call's rather than
+ * one left over from before it.
+ */
+export const readState = async () => {
+  await browser.execute(() => {
+    document.querySelector("#state").innerText = "";
+  });
+  await (await browser.$("#get-state")).click();
+
+  let text = "";
+  await browser.waitUntil(async function () {
+    text = await browser.execute(() => document.querySelector("#state").innerText.trim());
+    return text !== "";
+  }, {
+    timeout: 20000,
+    timeoutMsg: "getState() was never answered"
+  });
+
+  const state = JSON.parse(text);
+  if (state.error) {
+    throw new Error(`getState() rejected: ${state.error}`);
+  }
+  return state;
+};

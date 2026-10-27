@@ -1,6 +1,6 @@
 import { WebPlugin } from '@capacitor/core';
 
-import type { NativeAudioPlayerPlugin, StartOptions, Item, AudioOutput } from './definitions';
+import type { NativeAudioPlayerPlugin, StartOptions, Item, AudioOutput, AudioPlayerSnapshot } from './definitions';
 
 const getMediaSession = () => {
   return 'mediaSession' in navigator ? (navigator as any).mediaSession : null;
@@ -143,7 +143,7 @@ export class NativeAudioPlayerWeb extends WebPlugin implements NativeAudioPlayer
       // be there without the other. It goes either way, but there is no item to report on.
       const item = this.items[this.currentIndex];
       if (item) {
-        this.notifyListeners('audioPlayerChange', { id: item.id, state: 'paused' });
+        this.notifyListeners('audioPlayerChange', { id: item.id, state: 'stopped' });
       }
       audioElement.pause();
       audioElement.remove();
@@ -169,7 +169,7 @@ export class NativeAudioPlayerWeb extends WebPlugin implements NativeAudioPlayer
     // pauses while a slider is dragged calls this on every input event, which is many times
     // over one gesture, and only the first of them stops anything.
     //
-    // stop() reports its pause whatever was happening, since clearing the playlist is a
+    // stop() reports stopped whatever was happening, since clearing the playlist is a
     // change either way, and so it does not come through here.
     if (audioElement.paused) {
       return;
@@ -187,7 +187,7 @@ export class NativeAudioPlayerWeb extends WebPlugin implements NativeAudioPlayer
     if (index >= 0) {
       this.currentIndex = index;
       const result = await this.loadAudio(this.items[this.currentIndex]);
-      this.notifyListeners('audioPlayerChange', { state: 'skip', id: result.id });
+      this.notifyListeners('audioPlayerChange', { state: 'skipped', id: result.id });
       return result;
     }
 
@@ -215,7 +215,7 @@ export class NativeAudioPlayerWeb extends WebPlugin implements NativeAudioPlayer
     }
 
     const result = await this.loadAudio(this.items[this.currentIndex]);
-    this.notifyListeners('audioPlayerChange', { state: 'skip', id: result.id });
+    this.notifyListeners('audioPlayerChange', { state: 'skipped', id: result.id });
     return result;
   }
 
@@ -229,7 +229,7 @@ export class NativeAudioPlayerWeb extends WebPlugin implements NativeAudioPlayer
     }
 
     const result = await this.loadAudio(this.items[this.currentIndex]);
-    this.notifyListeners('audioPlayerChange', { state: 'skip', id: result.id });
+    this.notifyListeners('audioPlayerChange', { state: 'skipped', id: result.id });
     return result;
   }
 
@@ -255,6 +255,24 @@ export class NativeAudioPlayerWeb extends WebPlugin implements NativeAudioPlayer
   async getPosition(): Promise<{ value: number }> {
     const audioElement = this.getAudioElement();
     return { value: audioElement ? audioElement.currentTime : 0 };
+  }
+
+  async getState(): Promise<AudioPlayerSnapshot> {
+    const audioElement = this.getAudioElement();
+    const item = this.items[this.currentIndex];
+
+    // the element is found on the document and the playlist is this instance's, so one can be
+    // there without the other -- and without both there is nothing loaded to describe
+    if (!audioElement || !item) {
+      return { id: '', state: 'stopped', position: 0, duration: 0 };
+    }
+
+    return {
+      id: item.id,
+      state: audioElement.paused ? 'paused' : 'playing',
+      position: (await this.getPosition()).value,
+      duration: (await this.getDuration()).value,
+    };
   }
 
   loadAudio(item: Item): Promise<{ id: string }> {

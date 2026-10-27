@@ -225,7 +225,7 @@ describe('play and pause', () => {
 });
 
 describe('stop', () => {
-  it('reports paused and drops the audio element', async () => {
+  it('reports stopped, and no paused alongside it, and drops the audio element', async () => {
     const harness = await PlayerHarness.create();
     await harness.start();
     await harness.player.play();
@@ -233,8 +233,18 @@ describe('stop', () => {
 
     await harness.player.stop();
 
-    expect(harness.drain()).toEqual([{ state: 'paused', id: '1' }]);
+    expect(harness.drain()).toEqual([{ state: 'stopped', id: '1' }]);
     expect(harness.audioElement).toBeNull();
+  });
+
+  it('reports stopped when nothing was playing', async () => {
+    const harness = await PlayerHarness.create();
+    await harness.start();
+
+    // clearing the playlist is a change whatever the player was doing
+    await harness.player.stop();
+
+    expect(harness.drain()).toEqual([{ state: 'stopped', id: '1' }]);
   });
 
   it('can be called twice without failing', async () => {
@@ -261,12 +271,12 @@ describe('stop', () => {
 });
 
 describe('next, previous and select', () => {
-  it('moves to the next item and reports skip', async () => {
+  it('moves to the next item and reports skipped', async () => {
     const harness = await PlayerHarness.create();
     await harness.start();
 
     expect(await harness.player.next()).toEqual({ id: '2' });
-    expect(harness.drain()).toEqual([{ state: 'skip', id: '2' }]);
+    expect(harness.drain()).toEqual([{ state: 'skipped', id: '2' }]);
   });
 
   it('wraps from the last item to the first and back', async () => {
@@ -280,12 +290,12 @@ describe('next, previous and select', () => {
     expect(await harness.player.previous()).toEqual({ id: '3' });
   });
 
-  it('selects an item by its id and reports skip', async () => {
+  it('selects an item by its id and reports skipped', async () => {
     const harness = await PlayerHarness.create();
     await harness.start();
 
     expect(await harness.player.select({ id: '3' })).toEqual({ id: '3' });
-    expect(harness.drain()).toEqual([{ state: 'skip', id: '3' }]);
+    expect(harness.drain()).toEqual([{ state: 'skipped', id: '3' }]);
   });
 
   it('rejects an id that is not in the playlist', async () => {
@@ -451,6 +461,81 @@ describe('an item that plays to its end', () => {
   });
 });
 
+// The state is otherwise only observable through audioPlayerChange, so an app that mounts late
+// or missed an event has nothing to recover it from. See getState in definitions.ts.
+describe('getState', () => {
+  it('reports stopped before start, with nothing loaded', async () => {
+    const harness = await PlayerHarness.create();
+
+    expect(await harness.player.getState()).toEqual({ id: '', state: 'stopped', position: 0, duration: 0 });
+  });
+
+  it('reports the first item as paused once started', async () => {
+    const harness = await PlayerHarness.create();
+    await harness.start();
+
+    const state = await harness.player.getState();
+
+    expect(state).toMatchObject({ id: '1', state: 'paused', position: 0 });
+    expect(state.duration).toBeCloseTo(LONG_ITEM_SECONDS, 1);
+  });
+
+  it('follows playback as it starts and stops', async () => {
+    const harness = await PlayerHarness.create();
+    await harness.start();
+
+    await harness.player.play();
+    expect((await harness.player.getState()).state).toBe('playing');
+
+    await vi.waitFor(async () => expect((await harness.player.getState()).position).toBeGreaterThan(0));
+    await harness.player.pause();
+
+    const paused = await harness.player.getState();
+    expect(paused.state).toBe('paused');
+    expect(paused.position).toBe((await harness.player.getPosition()).value);
+  });
+
+  it('follows the selected item', async () => {
+    const harness = await PlayerHarness.create();
+    await harness.start();
+
+    await harness.player.next();
+    expect(await harness.player.getState()).toMatchObject({ id: '2', state: 'paused', position: 0 });
+
+    await harness.player.select({ id: '3' });
+    expect((await harness.player.getState()).id).toBe('3');
+  });
+
+  it('reports an item that played out as paused on it, rewound to its start', async () => {
+    const harness = await PlayerHarness.create(SHORT_ITEM_SECONDS);
+    await harness.start();
+
+    await harness.player.play();
+    await vi.waitFor(() => expect(harness.states).toContain('completed'), { timeout: 10000, interval: 50 });
+
+    expect(await harness.player.getState()).toMatchObject({ id: '1', state: 'paused', position: 0 });
+  });
+
+  it('reports stopped again after stop', async () => {
+    const harness = await PlayerHarness.create();
+    await harness.start();
+    await harness.player.play();
+
+    await harness.player.stop();
+
+    expect(await harness.player.getState()).toEqual({ id: '', state: 'stopped', position: 0, duration: 0 });
+  });
+
+  it('reports nothing of its own, since asking is not a change', async () => {
+    const harness = await PlayerHarness.create();
+    await harness.start();
+
+    await harness.player.getState();
+
+    expect(harness.states).toEqual([]);
+  });
+});
+
 describe('audio output', () => {
   it('always reports external, since the browser picks the output itself', async () => {
     const harness = await PlayerHarness.create();
@@ -546,8 +631,8 @@ describe('the media session', () => {
     expect(harness.isPlaying).toBe(false);
 
     handlers.get('nexttrack')?.({ action: 'nexttrack' });
-    await vi.waitFor(() => expect(harness.states).toEqual(['skip']));
-    expect(harness.drain()).toEqual([{ state: 'skip', id: '2' }]);
+    await vi.waitFor(() => expect(harness.states).toEqual(['skipped']));
+    expect(harness.drain()).toEqual([{ state: 'skipped', id: '2' }]);
   });
 
   it('refuses a browser control used before anything is loaded, but refuses quietly', async () => {

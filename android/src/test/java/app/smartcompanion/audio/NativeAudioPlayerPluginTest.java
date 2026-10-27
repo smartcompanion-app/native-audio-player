@@ -253,6 +253,20 @@ public class NativeAudioPlayerPluginTest {
     }
 
     @Test
+    public void testStopWhilePlayingReportsOnlyStopped() {
+        RecordingPlugin recording = new RecordingPlugin();
+        MediaController controller = controllerWithCurrentItem("item1");
+        when(controller.isPlaying()).thenReturn(true);
+        recording.mediaController = controller;
+
+        recording.stop(call());
+
+        Assert.assertEquals(1, recording.events.size());
+        Assert.assertEquals("stopped", recording.events.get(0).getString("state"));
+        Assert.assertEquals("item1", recording.events.get(0).getString("id"));
+    }
+
+    @Test
     public void testStopAnswersTheCallWhenTheControllerThrows() {
         MediaController controller = mock(MediaController.class);
         doThrow(new IllegalStateException("boom")).when(controller).pause();
@@ -580,6 +594,22 @@ public class NativeAudioPlayerPluginTest {
         Assert.assertEquals("item1", assertResolved(call).getString("id"));
     }
 
+    /**
+     * An item that was never prepared has no duration yet, so getDuration() and getState() would
+     * report 0 until the first play() -- where iOS and the web know it as soon as start() resolves.
+     */
+    @Test
+    public void testAttachControllerPreparesTheFirstItem() {
+        MediaController controller = controllerWithCurrentItem("item1");
+        plugin.mediaItems = new java.util.ArrayList<>();
+
+        plugin.attachController(Futures.immediateFuture(controller), call());
+
+        InOrder inOrder = inOrder(controller);
+        inOrder.verify(controller).setMediaItems(plugin.mediaItems);
+        inOrder.verify(controller).prepare();
+    }
+
     @Test
     public void testAttachControllerReleasesTheControllerWhenSetupFails() {
         MediaController controller = mock(MediaController.class);
@@ -604,6 +634,83 @@ public class NativeAudioPlayerPluginTest {
 
         Assert.assertNull(plugin.mediaController);
         assertRejected(call);
+    }
+
+    // getState() is the one way to read the player rather than follow it. The state is otherwise
+    // only observable through audioPlayerChange, so an app that mounts late or missed an event
+    // has nothing to recover it from -- see getState in definitions.ts.
+
+    @Test
+    public void testGetStateReportsStoppedWithoutAController() throws Exception {
+        PluginCall call = call();
+
+        plugin.getState(call);
+
+        JSObject state = assertResolved(call);
+        Assert.assertEquals("", state.getString("id"));
+        Assert.assertEquals("stopped", state.getString("state"));
+        Assert.assertEquals(0.0, state.getDouble("position"), 0.0);
+        Assert.assertEquals(0.0, state.getDouble("duration"), 0.0);
+    }
+
+    @Test
+    public void testGetStateReportsAPlayingItemInFractionalSeconds() throws Exception {
+        MediaController controller = controllerWithCurrentItem("item2");
+        when(controller.isPlaying()).thenReturn(true);
+        when(controller.getCurrentPosition()).thenReturn(1500L);
+        when(controller.getDuration()).thenReturn(5250L);
+        plugin.mediaController = controller;
+        PluginCall call = call();
+
+        plugin.getState(call);
+
+        JSObject state = assertResolved(call);
+        Assert.assertEquals("item2", state.getString("id"));
+        Assert.assertEquals("playing", state.getString("state"));
+        Assert.assertEquals(1.5, state.getDouble("position"), 0.0001);
+        Assert.assertEquals(5.25, state.getDouble("duration"), 0.0001);
+    }
+
+    @Test
+    public void testGetStateReportsAStoppedPlayerAsPaused() throws Exception {
+        MediaController controller = controllerWithCurrentItem("item1");
+        when(controller.isPlaying()).thenReturn(false);
+        when(controller.getCurrentPosition()).thenReturn(2000L);
+        when(controller.getDuration()).thenReturn(5000L);
+        plugin.mediaController = controller;
+        PluginCall call = call();
+
+        plugin.getState(call);
+
+        JSObject state = assertResolved(call);
+        Assert.assertEquals("paused", state.getString("state"));
+        Assert.assertEquals(2.0, state.getDouble("position"), 0.0001);
+    }
+
+    /**
+     * An item whose duration the player has not worked out yet reports C.TIME_UNSET, which is a
+     * large negative number -- getDuration() reports 0 for it, and so does this.
+     */
+    @Test
+    public void testGetStateReportsAnUnknownDurationAsZero() throws Exception {
+        MediaController controller = controllerWithCurrentItem("item1");
+        when(controller.getDuration()).thenReturn(androidx.media3.common.C.TIME_UNSET);
+        plugin.mediaController = controller;
+        PluginCall call = call();
+
+        plugin.getState(call);
+
+        Assert.assertEquals(0.0, assertResolved(call).getDouble("duration"), 0.0);
+    }
+
+    @Test
+    public void testGetStateReportsNothingOfItsOwn() {
+        RecordingPlugin recording = new RecordingPlugin();
+        recording.mediaController = controllerWithCurrentItem("item1");
+
+        recording.getState(new PluginCall(messageHandler, "NativeAudioPlayer", "callback-id", "method", new JSObject()));
+
+        Assert.assertTrue(recording.events.isEmpty());
     }
 
     @Test

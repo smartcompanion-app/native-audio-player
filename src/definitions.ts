@@ -30,6 +30,8 @@ export interface NativeAudioPlayerPlugin {
 
   /**
    * Stop the currently playing audio item and clear the playlist.
+   *
+   * Reports `stopped` whatever was happening, since clearing the playlist is a change either way.
    * @returns {Promise<void>} A promise that resolves when the audio is stopped.
    */
   stop(): Promise<void>;
@@ -116,6 +118,21 @@ export interface NativeAudioPlayerPlugin {
   getPosition(): Promise<{ value: number }>;
 
   /**
+   * Get what the player is doing right now: which item is selected, whether it is playing, and
+   * where in it the player is.
+   *
+   * The `audioPlayerChange` event only reports changes, so an app that mounts after the player
+   * was started, or that missed an event, has no other way to find out where things stand.
+   * Asking changes nothing and reports nothing.
+   *
+   * Before {@link NativeAudioPlayerPlugin.start} and after {@link NativeAudioPlayerPlugin.stop}
+   * nothing is loaded, which is reported as `stopped` with an empty `id` and zero for both
+   * times -- rather than rejected, since that is a perfectly good answer to the question.
+   * @returns {Promise<AudioPlayerSnapshot>} The current state of the player.
+   */
+  getState(): Promise<AudioPlayerSnapshot>;
+
+  /**
    * Get the audio output the player is currently routed to.
    * @returns {Promise<{output: AudioOutput}>} The current audio output.
    */
@@ -159,20 +176,28 @@ export interface NativeAudioPlayerPlugin {
 /**
  * The playback state of the player.
  *
+ * The `audioPlayerChange` event reports every one of these, and
+ * {@link NativeAudioPlayerPlugin.getState} the three the player can be in -- `skipped` and
+ * `completed` describe how it got somewhere rather than where it is, and leave it `paused`.
+ *
  * Exactly one event is emitted per transition, so a state never arrives paired with another
  * describing the same change -- and a call that changes nothing reports nothing at all. Every
  * state below behaves the same way on iOS, Android and the web.
  *
  * - `playing` -- playback started or resumed.
  * - `paused` -- playback stopped and the position was kept. Emitted for a
- *   {@link NativeAudioPlayerPlugin.pause} call that stopped something, for a
- *   {@link NativeAudioPlayerPlugin.stop} call whatever was happening, for an output change, and
- *   for an interruption -- an incoming call, or another app taking the audio -- that stopped
- *   something, but never for an item that reached its end: that is `completed`. The player is
- *   not started again when an interruption ends, and nothing is reported then, so an app that
- *   wants to carry on has to call {@link NativeAudioPlayerPlugin.play} itself. Interruptions
- *   are not reported on the web, where the browser exposes nothing to observe them with.
- * - `skip` -- the selected item changed through {@link NativeAudioPlayerPlugin.next},
+ *   {@link NativeAudioPlayerPlugin.pause} call that stopped something, for an output change,
+ *   and for an interruption -- an incoming call, or another app taking the audio -- that
+ *   stopped something, but never for an item that reached its end: that is `completed`. The
+ *   player is not started again when an interruption ends, and nothing is reported then, so an
+ *   app that wants to carry on has to call {@link NativeAudioPlayerPlugin.play} itself.
+ *   Interruptions are not reported on the web, where the browser exposes nothing to observe
+ *   them with.
+ * - `stopped` -- nothing is loaded. Emitted for a {@link NativeAudioPlayerPlugin.stop} call
+ *   whatever was happening, with the `id` of the item that was selected; it takes a
+ *   {@link NativeAudioPlayerPlugin.start} to play again. It is also where the player is before
+ *   the first `start()`.
+ * - `skipped` -- the selected item changed through {@link NativeAudioPlayerPlugin.next},
  *   {@link NativeAudioPlayerPlugin.previous} or {@link NativeAudioPlayerPlugin.select}. The new
  *   item is selected but not playing, so it takes a {@link NativeAudioPlayerPlugin.play} to
  *   start it. The `id` is the item moved to.
@@ -182,7 +207,35 @@ export interface NativeAudioPlayerPlugin {
  *   item that finished, and it stays the selected one. Advancing is left to the app: call
  *   {@link NativeAudioPlayerPlugin.next} from this listener to play through a playlist.
  */
-export type AudioPlayerState = 'playing' | 'paused' | 'skip' | 'completed';
+export type AudioPlayerState = 'playing' | 'paused' | 'stopped' | 'skipped' | 'completed';
+
+/**
+ * The result of {@link NativeAudioPlayerPlugin.getState}.
+ */
+export interface AudioPlayerSnapshot {
+  /**
+   * The id of the selected audio item, or an empty string while the player is `stopped`.
+   */
+  id: string;
+
+  /**
+   * Where the player is: `playing`, `paused` -- which covers an item that was just selected or
+   * started, one that was paused, and one that played out and was rewound -- or `stopped`.
+   */
+  state: Exclude<AudioPlayerState, 'skipped' | 'completed'>;
+
+  /**
+   * The position in the selected item in fractional seconds, the same value
+   * {@link NativeAudioPlayerPlugin.getPosition} reports.
+   */
+  position: number;
+
+  /**
+   * The duration of the selected item in fractional seconds, the same value
+   * {@link NativeAudioPlayerPlugin.getDuration} reports.
+   */
+  duration: number;
+}
 
 /**
  * The audio output the player is routed to.

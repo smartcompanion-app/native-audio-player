@@ -117,6 +117,14 @@ document.querySelector('#position').addEventListener('change', async (e) => {
   // seekTo resumes on its own, so there is no play() to make here
   await NativeAudioPlayer.seekTo({ position });
 });
+document.querySelector('#get-state').addEventListener('click', async () => {
+  const state = document.querySelector('#state');
+  try {
+    state.innerText = JSON.stringify(await NativeAudioPlayer.getState());
+  } catch (error) {
+    state.innerText = JSON.stringify({ error: String(error) });
+  }
+});
 document.querySelector('#select').addEventListener('click', async (e) => {
   const id = e.target.getAttribute('data-id');
   if (id) {
@@ -144,7 +152,11 @@ document.querySelector('#select').addEventListener('click', async (e) => {
       // something asks again -- and a pause does not always leave the player where it
       // was: an item that plays out rewinds itself to the start
       await updatePosition();
-    } else if (data.state == 'skip') {
+    } else if (data.state == 'stopped') {
+      // stop() can come mid-playback, and no paused comes with it -- so the button is put back
+      // here. There is nothing loaded to ask a position of.
+      document.querySelector('#play-pause').innerHTML = 'PLAY';
+    } else if (data.state == 'skipped') {
       document.querySelector('#play-pause').innerHTML = 'PLAY';
       await updatePosition();
       setActiveItem(data.id);
