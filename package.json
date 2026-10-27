@@ -79,8 +79,8 @@
     "@ionic/prettier-config": "^4.0.0",
     "@ionic/swiftlint-config": "^2.0.0",
     "@types/node": "^26.6.5",
-    "@vitest/browser": "^5.0.3",
-    "@vitest/browser-playwright": "^5.0.3",
+    "@vitest/browser": "^5.0.5",
+    "@vitest/browser-playwright": "^5.0.5",
     "eslint": "^10.12.0",
     "husky": "^9.1.7",
     "lint-staged": "^17.6.0",
@@ -91,7 +91,7 @@
     "rollup": "^4.64.5",
     "swiftlint": "^2.0.0",
     "typescript": "^5.9.3",
-    "vitest": "^5.0.3"
+    "vitest": "^5.0.5"
   },
   "peerDependencies": {
     "@capacitor/core": ">=8.0.0"
