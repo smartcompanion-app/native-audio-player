@@ -58,11 +58,11 @@ describe("The audio player contract", () => {
 
     await (await browser.$("#next")).click();
     await waitForActiveItem("2");
-    expect(await waitForEvents(["skip"], "Skip was not reported for next")).toEqual(["skip"]);
+    expect(await waitForEvents(["skipped"], "Skip was not reported for next")).toEqual(["skipped"]);
 
     await (await browser.$("#prev")).click();
     await waitForActiveItem("1");
-    expect(await waitForEvents(["skip", "skip"], "Skip was not reported for previous")).toEqual(["skip", "skip"]);
+    expect(await waitForEvents(["skipped", "skipped"], "Skip was not reported for previous")).toEqual(["skipped", "skipped"]);
   });
 
   // A slider fires input on every step of a drag, so an app that pauses while scrubbing pauses
@@ -111,7 +111,7 @@ describe("The audio player contract", () => {
     await (await browser.$("#next")).click();
     await waitForActiveItem("1");
 
-    expect(await waitForEvents(["skip", "skip"], "A skip was not reported for each wrap")).toEqual(["skip", "skip"]);
+    expect(await waitForEvents(["skipped", "skipped"], "A skip was not reported for each wrap")).toEqual(["skipped", "skipped"]);
   });
 
   it("selects an item from the list and reports a skip", async () => {
@@ -120,7 +120,7 @@ describe("The audio player contract", () => {
 
     await (await browser.$('#select > [data-id="3"]')).click();
     await waitForActiveItem("3");
-    expect(await waitForEvents(["skip"], "Skip was not reported for select")).toEqual(["skip"]);
+    expect(await waitForEvents(["skipped"], "Skip was not reported for select")).toEqual(["skipped"]);
   });
 
   // A skip selects the new item but does not start it -- see next, previous and select in the
@@ -150,7 +150,7 @@ describe("The audio player contract", () => {
     // The contract in events: one skip and nothing else. An implementation that kept playing
     // would either report a playing for the new item or report nothing and keep going.
     await waitForPlayPause("PLAY");
-    expect(await readEvents()).toEqual(["playing", "skip"]);
+    expect(await readEvents()).toEqual(["playing", "skipped"]);
 
     await browser.waitUntil(async function () {
       return (await readPosition()) < 5
@@ -161,7 +161,7 @@ describe("The audio player contract", () => {
 
     // and it stays stopped a moment later rather than running on quietly
     await browser.pause(2000);
-    expect(await readEvents()).toEqual(["playing", "skip"]);
+    expect(await readEvents()).toEqual(["playing", "skipped"]);
     expect(await playPauseButton.getText()).toBe("PLAY");
   });
 
@@ -266,8 +266,9 @@ describe("The audio player contract", () => {
 
     await startStopButton.click();
 
-    // a paused is reported whether or not anything was playing, and nothing else follows it
-    expect(await waitForEvents(["paused"], "Paused was not reported for stop")).toEqual(["paused"]);
+    // a stopped is reported whether or not anything was playing, and nothing else follows it --
+    // not even a paused for the playback it ended
+    expect(await waitForEvents(["stopped"], "Stopped was not reported for stop")).toEqual(["stopped"]);
 
     await browser.waitUntil(async function () {
       return (await startStopButton.getText()) === "START"
@@ -281,7 +282,7 @@ describe("The audio player contract", () => {
     expect(await (await browser.$("#select")).getText()).toBe("");
 
     await browser.pause(2000);
-    expect(await readEvents()).toEqual(["paused"]);
+    expect(await readEvents()).toEqual(["stopped"]);
     await clearEvents();
 
     await startStopButton.click();

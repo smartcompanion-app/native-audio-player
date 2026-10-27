@@ -253,6 +253,20 @@ public class NativeAudioPlayerPluginTest {
     }
 
     @Test
+    public void testStopWhilePlayingReportsOnlyStopped() {
+        RecordingPlugin recording = new RecordingPlugin();
+        MediaController controller = controllerWithCurrentItem("item1");
+        when(controller.isPlaying()).thenReturn(true);
+        recording.mediaController = controller;
+
+        recording.stop(call());
+
+        Assert.assertEquals(1, recording.events.size());
+        Assert.assertEquals("stopped", recording.events.get(0).getString("state"));
+        Assert.assertEquals("item1", recording.events.get(0).getString("id"));
+    }
+
+    @Test
     public void testStopAnswersTheCallWhenTheControllerThrows() {
         MediaController controller = mock(MediaController.class);
         doThrow(new IllegalStateException("boom")).when(controller).pause();

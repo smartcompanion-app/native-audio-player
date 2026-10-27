@@ -108,7 +108,9 @@ public class NativeAudioPlayerPlugin: CAPPlugin, CAPBridgedPlugin {
     }
 
     @objc func stop(_ call: CAPPluginCall) {
-        onPause()
+        // reported whatever was happening, since clearing the playlist is a change either way --
+        // and as the one stopped, rather than a paused for the playback it ends as well
+        self.notifyListeners("audioPlayerChange", data: ["id": player.currentId, "state": "stopped"])
         player.stop()
         removeRemoteCommandTargets()
         call.resolve()
@@ -145,8 +147,8 @@ public class NativeAudioPlayerPlugin: CAPPlugin, CAPBridgedPlugin {
         // pauses while a slider is dragged calls this on every input event, which is many
         // times over one gesture, and only the first of them stops anything.
         //
-        // stop() reports its pause whatever was happening, since clearing the playlist is a
-        // change either way, and so this does not go through onPause's guard.
+        // stop() reports stopped whatever was happening, since clearing the playlist is a
+        // change either way, and so it does not come through here.
         if player.audioPlayer?.isPlaying == true {
             onPause()
         }
@@ -158,7 +160,7 @@ public class NativeAudioPlayerPlugin: CAPPlugin, CAPBridgedPlugin {
         let id = call.getString("id") ?? ""
 
         if player.select(id) {
-            self.notifyListeners("audioPlayerChange", data: ["id": player.currentId, "state": "skip"])
+            self.notifyListeners("audioPlayerChange", data: ["id": player.currentId, "state": "skipped"])
             call.resolve(["id": player.currentId])
         } else {
             call.reject("could not switch to item with given id")
@@ -360,7 +362,7 @@ extension NativeAudioPlayerPlugin {
 
     private func onNext() -> Bool {
         if player.next() {
-            self.notifyListeners("audioPlayerChange", data: ["id": player.currentId, "state": "skip"])
+            self.notifyListeners("audioPlayerChange", data: ["id": player.currentId, "state": "skipped"])
             return true
         } else {
             return false
@@ -369,7 +371,7 @@ extension NativeAudioPlayerPlugin {
 
     private func onPrevious() -> Bool {
         if player.previous() {
-            self.notifyListeners("audioPlayerChange", data: ["id": player.currentId, "state": "skip"])
+            self.notifyListeners("audioPlayerChange", data: ["id": player.currentId, "state": "skipped"])
             return true
         } else {
             return false

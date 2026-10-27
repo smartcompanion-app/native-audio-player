@@ -17,7 +17,7 @@ class NativeAudioPlayerPluginTests: PluginTestCase {
 
         XCTAssertTrue(recorder.answered)
         XCTAssertNil(recorder.rejected)
-        XCTAssertEqual(plugin.states, ["paused"])
+        XCTAssertEqual(plugin.states, ["stopped"])
         XCTAssertEqual(plugin.events.first?.data["id"] as? String, "")
     }
 
@@ -52,6 +52,23 @@ class NativeAudioPlayerPluginTests: PluginTestCase {
         plugin.play(recorder.makeCall())
 
         XCTAssertEqual(recorder.rejected, "could not play without a loaded audio item")
+    }
+
+    /// stop() ends the playback as well as the playlist, and reports that as the one stopped
+    /// rather than a paused followed by a stopped.
+    func testStopWhilePlayingReportsOnlyStopped() throws {
+        let audio = try writeAudioFile(at: "stop-while-playing.wav")
+        let plugin = RecordingPlugin()
+
+        plugin.start(CallRecorder().makeCall(["items": [item(id: "1", audio: audio)]]))
+        plugin.play(CallRecorder().makeCall())
+        let before = plugin.events.count
+
+        plugin.stop(CallRecorder().makeCall())
+
+        let changes = plugin.events.dropFirst(before).filter { $0.name == "audioPlayerChange" }
+        XCTAssertEqual(changes.map { $0.data["state"] as? String }, ["stopped"])
+        XCTAssertEqual(changes.first?.data["id"] as? String, "1")
     }
 
     func testSelectNextAndPreviousBeforeStartReject() {
@@ -199,7 +216,7 @@ class NativeAudioPlayerPluginTests: PluginTestCase {
 
         // it used to resolve with the item the caller already had
         XCTAssertEqual(recorder.rejected, "could not switch to item with given id")
-        XCTAssertFalse(plugin.states.contains("skip"))
+        XCTAssertFalse(plugin.states.contains("skipped"))
     }
 
     // MARK: - Lifetime

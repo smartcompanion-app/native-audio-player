@@ -93,7 +93,7 @@ public class NativeAudioPlayerPlugin extends Plugin {
             }
 
             try {
-                JSObject json = nativeAudioPlayer.preparePlayerEvent("skip", mediaItem);
+                JSObject json = nativeAudioPlayer.preparePlayerEvent("skipped", mediaItem);
                 // The new item is selected but not playing, so skipping away from a playing item
                 // has to stop it -- and that stop is part of the skip rather than a change of
                 // its own. A transition reports one state, see AudioPlayerState in
@@ -292,7 +292,7 @@ public class NativeAudioPlayerPlugin extends Plugin {
                 pausedEventAlreadySent = mediaController.isPlaying();
                 notifyListeners(
                     "audioPlayerChange",
-                    nativeAudioPlayer.preparePlayerEvent("paused", Objects.requireNonNull(mediaController.getCurrentMediaItem()))
+                    nativeAudioPlayer.preparePlayerEvent("stopped", Objects.requireNonNull(mediaController.getCurrentMediaItem()))
                 );
                 mediaController.pause();
                 mediaController.stop();

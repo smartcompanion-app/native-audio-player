@@ -225,7 +225,7 @@ describe('play and pause', () => {
 });
 
 describe('stop', () => {
-  it('reports paused and drops the audio element', async () => {
+  it('reports stopped, and no paused alongside it, and drops the audio element', async () => {
     const harness = await PlayerHarness.create();
     await harness.start();
     await harness.player.play();
@@ -233,8 +233,18 @@ describe('stop', () => {
 
     await harness.player.stop();
 
-    expect(harness.drain()).toEqual([{ state: 'paused', id: '1' }]);
+    expect(harness.drain()).toEqual([{ state: 'stopped', id: '1' }]);
     expect(harness.audioElement).toBeNull();
+  });
+
+  it('reports stopped when nothing was playing', async () => {
+    const harness = await PlayerHarness.create();
+    await harness.start();
+
+    // clearing the playlist is a change whatever the player was doing
+    await harness.player.stop();
+
+    expect(harness.drain()).toEqual([{ state: 'stopped', id: '1' }]);
   });
 
   it('can be called twice without failing', async () => {
@@ -261,12 +271,12 @@ describe('stop', () => {
 });
 
 describe('next, previous and select', () => {
-  it('moves to the next item and reports skip', async () => {
+  it('moves to the next item and reports skipped', async () => {
     const harness = await PlayerHarness.create();
     await harness.start();
 
     expect(await harness.player.next()).toEqual({ id: '2' });
-    expect(harness.drain()).toEqual([{ state: 'skip', id: '2' }]);
+    expect(harness.drain()).toEqual([{ state: 'skipped', id: '2' }]);
   });
 
   it('wraps from the last item to the first and back', async () => {
@@ -280,12 +290,12 @@ describe('next, previous and select', () => {
     expect(await harness.player.previous()).toEqual({ id: '3' });
   });
 
-  it('selects an item by its id and reports skip', async () => {
+  it('selects an item by its id and reports skipped', async () => {
     const harness = await PlayerHarness.create();
     await harness.start();
 
     expect(await harness.player.select({ id: '3' })).toEqual({ id: '3' });
-    expect(harness.drain()).toEqual([{ state: 'skip', id: '3' }]);
+    expect(harness.drain()).toEqual([{ state: 'skipped', id: '3' }]);
   });
 
   it('rejects an id that is not in the playlist', async () => {
@@ -621,8 +631,8 @@ describe('the media session', () => {
     expect(harness.isPlaying).toBe(false);
 
     handlers.get('nexttrack')?.({ action: 'nexttrack' });
-    await vi.waitFor(() => expect(harness.states).toEqual(['skip']));
-    expect(harness.drain()).toEqual([{ state: 'skip', id: '2' }]);
+    await vi.waitFor(() => expect(harness.states).toEqual(['skipped']));
+    expect(harness.drain()).toEqual([{ state: 'skipped', id: '2' }]);
   });
 
   it('refuses a browser control used before anything is loaded, but refuses quietly', async () => {
