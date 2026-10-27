@@ -8,6 +8,9 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import android.media.AudioDeviceInfo;
+import android.media.AudioManager;
+import android.os.Looper;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.Player;
 import androidx.media3.session.MediaController;
@@ -527,6 +530,35 @@ public class NativeAudioPlayerPluginTest {
         // still has something new to say about it
         verify(controller).pause();
         Assert.assertEquals(2, recording.events.size());
+    }
+
+    // Registering the device callback delivers the devices that are already connected, which
+    // every start() does. Reported, that had Android announce a paused and an output on every
+    // start, where iOS and the web announce nothing.
+    @Test
+    public void testTheDevicesConnectedAtRegistrationAreNotReported() {
+        AudioManager audioManager = mock(AudioManager.class);
+        when(audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS)).thenReturn(new AudioDeviceInfo[0]);
+        RecordingPlugin recording = new RecordingPlugin() {
+            @Override
+            protected AudioManager getAudioManager() {
+                return audioManager;
+            }
+        };
+        MediaController controller = controllerWithCurrentItem("item1");
+        when(controller.getApplicationLooper()).thenReturn(Looper.getMainLooper());
+        recording.mediaController = controller;
+
+        recording.registerPlayerEvents();
+        recording.audioDeviceCallback.onAudioDevicesAdded(new AudioDeviceInfo[0]);
+
+        Assert.assertTrue("the connected devices were reported as a change", recording.events.isEmpty());
+
+        // and a device that connects after that is still one
+        recording.audioDeviceCallback.onAudioDevicesAdded(new AudioDeviceInfo[0]);
+
+        Assert.assertEquals(2, recording.events.size());
+        Assert.assertEquals("paused", recording.events.get(0).getString("state"));
     }
 
     // Java assertions are disabled at runtime on Android, so the assert this
