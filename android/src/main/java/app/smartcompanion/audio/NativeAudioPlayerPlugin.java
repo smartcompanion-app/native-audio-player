@@ -191,12 +191,25 @@ public class NativeAudioPlayerPlugin extends Plugin {
     };
 
     /**
+     * Set while the callback is registered and has not yet delivered the devices that were
+     * already connected. Registering calls onAudioDevicesAdded straight away with every one of
+     * them, and that is the state the player started in rather than a change -- reported, it
+     * had every start() announce a paused and an output that nothing had changed.
+     */
+    protected boolean awaitingConnectedDevices;
+
+    /**
      * Catches the output changes this plugin does not cause itself, e.g. headphones being
      * unplugged or a bluetooth device connecting.
      */
     protected AudioDeviceCallback audioDeviceCallback = new AudioDeviceCallback() {
         @Override
         public void onAudioDevicesAdded(AudioDeviceInfo[] addedDevices) {
+            if (awaitingConnectedDevices) {
+                awaitingConnectedDevices = false;
+                return;
+            }
+
             notifyAudioOutputChange();
         }
 
@@ -568,10 +581,12 @@ public class NativeAudioPlayerPlugin extends Plugin {
 
         AudioManager audioManager = getAudioManager();
         if (audioManager != null) {
-            // seed the baseline first, the callback fires straight away with the devices
-            // that are already connected and that is not a change worth reporting
             notifiedAudioOutput = resolveAudioOutput();
             audioManager.unregisterAudioDeviceCallback(audioDeviceCallback); // prevent double add
+
+            // the callback fires straight away with the devices that are already connected,
+            // which is not a change worth reporting -- see awaitingConnectedDevices
+            awaitingConnectedDevices = true;
 
             // deliver on the looper the controller was built on rather than the main thread:
             // the callback pauses playback, and a MediaController throws when it is touched

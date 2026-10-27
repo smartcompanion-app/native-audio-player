@@ -25,6 +25,19 @@ import {
  */
 describe("The audio player contract", () => {
 
+  // start() loads the playlist and changes nothing anyone could have been told about before,
+  // so it reports nothing. Android used to announce a paused and an output change on every
+  // start, from the device callback it registers delivering the devices already connected --
+  // and since every other spec clears the log first, nothing noticed. This runs first so the
+  // log still holds everything since the app started.
+  it("reports nothing for start", async () => {
+    await waitForControls();
+
+    // what start() set off arrives after it resolves, so give it the time to
+    await browser.pause(2000);
+    expect(await readEvents()).toEqual([]);
+  });
+
   it("reports playing and then paused as the player is toggled", async () => {
     const playPauseButton = await waitForControls();
     await clearEvents();
@@ -269,13 +282,16 @@ describe("The audio player contract", () => {
 
     await browser.pause(2000);
     expect(await readEvents()).toEqual(["paused"]);
+    await clearEvents();
 
     await startStopButton.click();
 
-    // and the player comes back as a fresh one, on the first item and ready to play
+    // and the player comes back as a fresh one, on the first item and ready to play -- quietly,
+    // the same as the first start
     await waitForControls();
     await waitForActiveItem("1");
-    await clearEvents();
+    await browser.pause(2000);
+    expect(await readEvents()).toEqual([]);
 
     await playPauseButton.click();
     await waitForPlayPause("PAUSE");
