@@ -42,6 +42,16 @@
         <button id="next" disabled>NEXT</button>
       </div>
 
+      <!-- The playback rate. #rate-value shows what getRate() answered after the last click, or
+           the error when setRate() refused -- 3 is outside the range on purpose. -->
+      <div id="rate" class="controls">
+        <button data-rate="1">1×</button>
+        <button data-rate="1.5">1.5×</button>
+        <button data-rate="2">2×</button>
+        <button data-rate="3">3×</button>
+        <span id="rate-value">-</span>
+      </div>
+
       <div class="controls">
         <input id="position" min="0" max="100" type="range" value="0" disabled />
       </div>

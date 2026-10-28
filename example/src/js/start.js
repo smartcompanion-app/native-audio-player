@@ -117,6 +117,21 @@ document.querySelector('#position').addEventListener('change', async (e) => {
   // seekTo resumes on its own, so there is no play() to make here
   await NativeAudioPlayer.seekTo({ position });
 });
+document.querySelector('#rate').addEventListener('click', async (e) => {
+  const rate = e.target.getAttribute('data-rate');
+  if (!rate) {
+    return;
+  }
+
+  const display = document.querySelector('#rate-value');
+  try {
+    await NativeAudioPlayer.setRate({ value: Number(rate) });
+    display.innerText = String((await NativeAudioPlayer.getRate()).value);
+  } catch (error) {
+    // with the rate still in force, so a refusal can be seen to have left it alone
+    display.innerText = `error: ${String(error)} (rate ${(await NativeAudioPlayer.getRate()).value})`;
+  }
+});
 document.querySelector('#get-state').addEventListener('click', async () => {
   const state = document.querySelector('#state');
   try {
@@ -146,6 +161,8 @@ document.querySelector('#select').addEventListener('click', async (e) => {
     progress.dataset.id = data.id;
     progress.dataset.position = data.position;
     progress.dataset.duration = data.duration;
+    // when it arrived, so the e2e suite can work out how fast the playhead moves in real time
+    progress.dataset.at = Date.now();
 
     showPosition(data.position, data.duration);
   });

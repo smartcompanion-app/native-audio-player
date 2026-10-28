@@ -37,12 +37,18 @@ public class AudioPlayerServiceTest {
 
     @After
     public void tearDown() {
-        session.release();
+        if (session != null) {
+            session.release();
+        }
         player.release();
     }
 
     private MediaSession.ConnectionResult connect(boolean trusted) {
-        MediaSession.ControllerInfo controller = MediaSession.ControllerInfo.createTestOnlyControllerInfo(
+        return service.mediaSessionCallback.onConnect(session, controllerInfo(trusted));
+    }
+
+    private MediaSession.ControllerInfo controllerInfo(boolean trusted) {
+        return MediaSession.ControllerInfo.createTestOnlyControllerInfo(
             "com.example.controller",
             /* pid= */ 0,
             /* uid= */ 0,
@@ -52,7 +58,6 @@ public class AudioPlayerServiceTest {
             Bundle.EMPTY,
             /* isPackageNameVerified= */ true
         );
-        return service.mediaSessionCallback.onConnect(session, controller);
     }
 
     @Test
@@ -66,6 +71,37 @@ public class AudioPlayerServiceTest {
         Assert.assertTrue(commands.contains(Player.COMMAND_PLAY_PAUSE));
         Assert.assertTrue(commands.contains(Player.COMMAND_SEEK_IN_CURRENT_MEDIA_ITEM));
         Assert.assertTrue(commands.contains(Player.COMMAND_SEEK_TO_MEDIA_ITEM));
+    }
+
+    /** setRate() is setPlaybackParameters() -- without this one it silently does nothing. */
+    @Test
+    public void testTrustedControllerCanChangeTheRate() {
+        Assert.assertTrue(connect(true).availablePlayerCommands.contains(Player.COMMAND_SET_SPEED_AND_PITCH));
+    }
+
+    /**
+     * Switching the output builds a new player and hands it the playlist and the position. The
+     * rate has to go across with them, or the first output change drops the listener back to
+     * normal speed.
+     */
+    @Test
+    public void testSwitchingTheOutputKeepsTheRate() {
+        // a session id has to be unique in the process, and the running service builds its own
+        session.release();
+        session = null;
+        AudioPlayerService running = org.robolectric.Robolectric.buildService(AudioPlayerService.class).create().get();
+
+        try {
+            running.mediaSession.getPlayer().setPlaybackParameters(new androidx.media3.common.PlaybackParameters(1.5f));
+
+            Bundle extras = new Bundle();
+            extras.putString("CHANNEL", NativeAudioPlayer.OUTPUT_EARPIECE);
+            running.mediaSessionCallback.onCustomCommand(running.mediaSession, controllerInfo(true), CHANNEL, extras);
+
+            Assert.assertEquals(1.5f, running.mediaSession.getPlayer().getPlaybackParameters().speed, 0.0f);
+        } finally {
+            running.onDestroy();
+        }
     }
 
     @Test

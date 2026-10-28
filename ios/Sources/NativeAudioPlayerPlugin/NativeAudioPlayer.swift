@@ -23,6 +23,11 @@ import UIKit
     /// interrupted. This is the answer to that question, and nothing else should be read for it.
     var playWhenReady: Bool = false
 
+    /// The speed the audio plays at, see setRate in definitions.ts. Set before load() for it to
+    /// reach the player: AVAudioPlayer only honours a rate when it was enabled before
+    /// prepareToPlay(), and a new one is built for every item and every output change.
+    var rate: Float = 1.0
+
     // the item currentIndex points at, or nil while the playlist is empty --
     // everything below reads through this so an unset playlist cannot trap
     var currentItem: AudioPlayerItem? {
@@ -44,7 +49,7 @@ import UIKit
     /// rate means playing, so it offers pause. A rate left at 1.0 on a paused player therefore
     /// keeps offering pause, and the play command can never be reached from the lock screen.
     var playbackRate: Double {
-        audioPlayer?.isPlaying == true ? 1.0 : 0.0
+        audioPlayer?.isPlaying == true ? Double(rate) : 0.0
     }
     var title: String {
         currentItem?.title ?? ""
@@ -157,7 +162,7 @@ import UIKit
     // Capacitor's Filesystem API hands back fully qualified file:// URLs, but a
     // plain path is just as valid -- accept both instead of rebuilding the path
     // from its last component, which only ever resolved for Directory.Data.
-    private func resolveURL(_ uri: String) -> URL? {
+    func resolveURL(_ uri: String) -> URL? {
         guard !uri.isEmpty else {
             return nil
         }
@@ -198,6 +203,8 @@ import UIKit
             playWhenReady = false
             stopProgress()
             audioPlayer = try AVAudioPlayer(contentsOf: url)
+            audioPlayer?.enableRate = true
+            audioPlayer?.rate = rate
             audioPlayer?.prepareToPlay()
             audioPlayer?.delegate = self
 
@@ -309,6 +316,13 @@ import UIKit
         updateLockScreen()
     }
 
+    /// Changes the speed of whatever is loaded, playing or not, and of everything loaded after it.
+    func setRate(_ value: Float) {
+        rate = value
+        audioPlayer?.rate = value
+        updateLockScreen()
+    }
+
     func setEarpiece() {
         let oldPosition = position
         pause()
@@ -325,49 +339,6 @@ import UIKit
         load()
         seekTo(oldPosition)
         notifyAudioOutputChange()
-    }
-
-    func initLockScreen(_ position: Int = 0) {
-        guard let item = currentItem else {
-            return
-        }
-
-        var nowPlayingInfo: [String: Any] = [
-            MPMediaItemPropertyTitle: self.title,
-            MPMediaItemPropertyArtist: self.subtitle,
-            MPMediaItemPropertyPlaybackDuration: self.duration,
-            MPNowPlayingInfoPropertyPlaybackRate: playbackRate,
-            MPNowPlayingInfoPropertyElapsedPlaybackTime: position,
-            // what the system would otherwise have to guess at: audio with a timeline,
-            // rather than something it can only start and stop
-            MPNowPlayingInfoPropertyMediaType: MPNowPlayingInfoMediaType.audio.rawValue,
-            MPNowPlayingInfoPropertyIsLiveStream: false
-        ]
-
-        // decode up front: the artwork request handler is invoked by the system on
-        // an arbitrary thread, where a missing or corrupt image used to crash
-        if let imageURL = resolveURL(item.imageUri), let image = UIImage(contentsOfFile: imageURL.path) {
-            nowPlayingInfo[MPMediaItemPropertyArtwork] = MPMediaItemArtwork(boundsSize: image.size) { _ in image }
-        }
-
-        MPNowPlayingInfoCenter.default().nowPlayingInfo = nowPlayingInfo
-    }
-
-    /// Writes back the two fields the system cannot work out for itself, leaving the metadata
-    /// and the decoded artwork alone.
-    ///
-    /// Every transition that changes where or whether the audio is playing has to go through
-    /// here. The system only re-reads these when they are set, so anything that moves the
-    /// player without setting them leaves the lock screen running a clock of its own.
-    func updateLockScreen() {
-        guard var nowPlayingInfo = MPNowPlayingInfoCenter.default().nowPlayingInfo else {
-            return
-        }
-
-        nowPlayingInfo[MPNowPlayingInfoPropertyElapsedPlaybackTime] = position
-        nowPlayingInfo[MPNowPlayingInfoPropertyPlaybackRate] = playbackRate
-
-        MPNowPlayingInfoCenter.default().nowPlayingInfo = nowPlayingInfo
     }
 
     public func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {

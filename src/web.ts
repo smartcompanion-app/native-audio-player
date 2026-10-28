@@ -10,7 +10,7 @@ const createMediaMetadata = (init: any) => {
   return 'MediaMetadata' in window ? new (window as any).MediaMetadata(init) : null;
 };
 
-const updateMediaSessionMetadata = (item: Item, duration: number) => {
+const updateMediaSessionMetadata = (item: Item, duration: number, playbackRate: number) => {
   const mediaSession = getMediaSession();
   if (mediaSession) {
     mediaSession.metadata = createMediaMetadata({
@@ -22,7 +22,7 @@ const updateMediaSessionMetadata = (item: Item, duration: number) => {
     mediaSession.setPositionState({
       position: 0,
       duration: duration,
-      playbackRate: 1.0,
+      playbackRate,
     });
   }
 };
@@ -70,6 +70,13 @@ const progressIntervalMillis = (seconds: number | undefined): number => {
 };
 
 /**
+ * The rates setRate() accepts -- see setRate in definitions.ts. Browsers play a much wider range,
+ * but iOS does not, and the same call has to mean the same thing everywhere.
+ */
+const MIN_RATE = 0.5;
+const MAX_RATE = 2;
+
+/**
  * A browser media control is not a caller that can handle a rejection -- there is nowhere to
  * return the failure to. Refusing before anything is loaded is right, but it has to stay
  * quiet: an unhandled rejection reaches an app's error reporting as a crash it cannot act on.
@@ -83,6 +90,9 @@ export class NativeAudioPlayerWeb extends WebPlugin implements NativeAudioPlayer
   protected currentIndex = 0;
   protected progressIntervalMs = DEFAULT_PROGRESS_INTERVAL_MS;
   protected progressTimer: ReturnType<typeof setInterval> | undefined;
+
+  /** Kept on the instance rather than the element, which is replaced for every item. */
+  protected rate = 1;
 
   constructor() {
     super();
@@ -294,6 +304,37 @@ export class NativeAudioPlayerWeb extends WebPlugin implements NativeAudioPlayer
     }
   }
 
+  async setRate(options: { value: number }): Promise<void> {
+    const value = options?.value;
+
+    // NaN fails both comparisons, so it is refused with the rest
+    if (typeof value !== 'number' || !(value >= MIN_RATE && value <= MAX_RATE)) {
+      throw new Error(`rate must be between ${MIN_RATE} and ${MAX_RATE}`);
+    }
+
+    this.rate = value;
+
+    const audioElement = this.getAudioElement();
+    if (audioElement) {
+      this.applyRate(audioElement);
+      updateMediaSessionPosition(audioElement);
+    }
+  }
+
+  async getRate(): Promise<{ value: number }> {
+    return { value: this.rate };
+  }
+
+  /**
+   * defaultPlaybackRate as well as playbackRate: loading media resets playbackRate to the default,
+   * so an element given only the one loses it as soon as its source is set.
+   */
+  protected applyRate(audioElement: HTMLAudioElement): void {
+    audioElement.defaultPlaybackRate = this.rate;
+    audioElement.playbackRate = this.rate;
+    audioElement.preservesPitch = true;
+  }
+
   async getDuration(): Promise<{ value: number }> {
     const audioElement = this.getAudioElement();
     return { value: audioElement && audioElement.duration > 0 ? audioElement.duration : 0 };
@@ -331,7 +372,7 @@ export class NativeAudioPlayerWeb extends WebPlugin implements NativeAudioPlayer
 
       const audio = document.createElement('audio');
       audio.addEventListener('loadedmetadata', () => {
-        updateMediaSessionMetadata(item, audio.duration);
+        updateMediaSessionMetadata(item, audio.duration, this.rate);
         resolve({ id: item.id });
       });
       // Without this an item that cannot be loaded leaves the caller waiting for metadata
@@ -349,6 +390,7 @@ export class NativeAudioPlayerWeb extends WebPlugin implements NativeAudioPlayer
         updateMediaSessionPosition(audio);
         this.notifyListeners('audioPlayerChange', { state: 'completed', id: item.id });
       });
+      this.applyRate(audio);
       audio.setAttribute('id', 'web-audio');
       audio.src = item.audioUri;
       document.body.appendChild(audio);
