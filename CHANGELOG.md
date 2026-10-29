@@ -1,5 +1,31 @@
 # @smartcompanion/native-audio-player
 
+## 2.0.0
+
+### Major Changes
+
+- [#70](https://github.com/smartcompanion-app/native-audio-player/pull/70) [`e371f95`](https://github.com/smartcompanion-app/native-audio-player/commit/e371f951497f2f637f8b2289f34b23f23d2f4b4d) Thanks [@stefanhuber](https://github.com/stefanhuber)! - `audioPlayerChange` reports `stopped` for `stop()`, and `skipped` where it reported `skip`. `AudioPlayerState` is now `'playing' | 'paused' | 'stopped' | 'skipped' | 'completed'`, and is the one state type the plugin has.
+
+  - **`stop()` reports `stopped` instead of `paused`.** It is still reported whatever was happening, and still once: no `paused` comes alongside it for the playback it ends. A listener that handled the end of the playlist under `paused` has to handle `stopped` instead.
+  - **`skip` is renamed to `skipped`**, so that every state names where the player ended up. A listener comparing against `'skip'` no longer matches and has to compare against `'skipped'`.
+  - `getState()` resolves with an `AudioPlayerSnapshot`, whose `state` is `AudioPlayerState` without `skipped` and `completed` -- the two that describe how the player got somewhere rather than where it is.
+
+### Minor Changes
+
+- [#72](https://github.com/smartcompanion-app/native-audio-player/pull/72) [`e453bda`](https://github.com/smartcompanion-app/native-audio-player/commit/e453bdab7a9b4451d1c31cd403750588c8cfdfd5) Thanks [@stefanhuber](https://github.com/stefanhuber)! - Add `setRate({ value })` and `getRate()` to play audio faster or slower, from `0.5` to `2` times normal speed, with the pitch kept so speech stays listenable. The rate belongs to the player rather than to an item: it carries across `next()`, `previous()`, `select()`, an output change, and `stop()` followed by a new `start()`, and it can be set before anything is loaded. A rate outside the range is rejected and leaves the current one in place. The lock screen and the notification follow the rate, so their scrubber keeps pace with the audio.
+
+- [#70](https://github.com/smartcompanion-app/native-audio-player/pull/70) [`e371f95`](https://github.com/smartcompanion-app/native-audio-player/commit/e371f951497f2f637f8b2289f34b23f23d2f4b4d) Thanks [@stefanhuber](https://github.com/stefanhuber)! - Add `getState()`, which answers what the player is doing right now: `{ id, state, position, duration }`, with `state` being `playing`, `paused` or `stopped`. Until now the state could only be followed through the `audioPlayerChange` event, so an app that mounted after the player was started, or that missed an event, had no way to recover it. Before `start()` and after `stop()` it resolves with `stopped`, an empty `id` and zero for both times rather than rejecting.
+
+  On Android the first item is now prepared as soon as `start()` resolves, so `getDuration()` (and the `duration` from `getState()`) reports the item's length straight away instead of 0 until the first `play()` — the way iOS and the web already did.
+
+- [#71](https://github.com/smartcompanion-app/native-audio-player/pull/71) [`0db5430`](https://github.com/smartcompanion-app/native-audio-player/commit/0db54306967355abadcf8aab0ce1a45ce5f47e59) Thanks [@stefanhuber](https://github.com/stefanhuber)! - Add a `progress` event that reports `{ id, position, duration }` while the audio is playing, so a progress bar can follow playback without polling `getPosition()`. It reports twice a second by default; pass `progressInterval` (in seconds) to `start()` for another interval. It stops with the playback, whatever stopped it, and starts again with the next `playing`.
+
+- [#73](https://github.com/smartcompanion-app/native-audio-player/pull/73) [`29e15bd`](https://github.com/smartcompanion-app/native-audio-player/commit/29e15bd61ffb310a54c610b564ec0a8237399c93) Thanks [@stefanhuber](https://github.com/stefanhuber)! - Play remote items: `audioUri` and `imageUri` take an `http(s)` URL on every platform, and the audio is streamed from where it is instead of having to be downloaded first. `start()`, `next()`, `previous()` and `select()` now answer once the item can be played -- so its duration is known -- and reject when it cannot be loaded. On iOS the player moves from `AVAudioPlayer` to `AVPlayer`, and switching between earpiece and speaker no longer reloads the item.
+
+### Patch Changes
+
+- [#75](https://github.com/smartcompanion-app/native-audio-player/pull/75) [`3c8933f`](https://github.com/smartcompanion-app/native-audio-player/commit/3c8933fda08b0011afb7edd81d94dc49178c4ee0) Thanks [@stefanhuber](https://github.com/stefanhuber)! - Android no longer reports a `paused` and an `audioOutputChange` on every `start()`. Registering for audio device changes delivers the devices that are already connected, and the plugin took that for an output change. iOS and the web never reported anything for `start()`, and now Android doesn't either. A real output change is still reported as before.
+
 ## 1.0.2
 
 ### Patch Changes
