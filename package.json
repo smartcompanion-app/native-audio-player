@@ -1,7 +1,7 @@
 {
   "name": "@smartcompanion/native-audio-player",
   "version": "2.0.0",
-  "description": "Capacitor plugin for native audio playback: background playback, lock screen and notification controls, playlists, and earpiece/speaker routing on iOS, Android and the web.",
+  "description": "Capacitor plugin for native audio playback: streaming and local files, background playback, lock screen and notification controls, playlists, playback speed, and earpiece/speaker routing on iOS, Android and the web.",
   "main": "dist/plugin.cjs.js",
   "module": "dist/esm/index.js",
   "types": "dist/esm/index.d.ts",
@@ -34,6 +34,8 @@
     "audio",
     "audio-player",
     "background-audio",
+    "audio-streaming",
+    "playback-speed",
     "media-session",
     "lock-screen",
     "playlist",
@@ -41,7 +43,7 @@
     "speaker",
     "exoplayer",
     "media3",
-    "avaudioplayer",
+    "avplayer",
     "ios",
     "android"
   ],
