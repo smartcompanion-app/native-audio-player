@@ -226,8 +226,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        variant: [baseline, remote-last, no-remote]
-        run: [1, 2, 3]
+        variant: [cold-boot]
+        run: [1, 2, 3, 4, 5, 6, 7, 8, 9]
     env:
       E2E_VARIANT: ${{ matrix.variant }}
     steps:
@@ -279,27 +279,6 @@ jobs:
           key: chromedriver-${{ runner.os }}-${{ hashFiles('example/package-lock.json') }}
           restore-keys: |
             chromedriver-${{ runner.os }}-
-      # The emulator only reuses a snapshot that was created with the same
-      # options, so the key has to change when the workflow does.
-      - name: Cache AVD snapshot
-        uses: actions/cache@v6
-        id: avd-cache
-        with:
-          path: |
-            ~/.android/avd/*
-            ~/.android/adb*
-          key: avd-${{ env.ANDROID_API_LEVEL }}-google_apis-x86_64-${{ hashFiles('.github/workflows/ci.yml') }}
-      - name: Create AVD snapshot
-        if: steps.avd-cache.outputs.cache-hit != 'true'
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: ${{ env.ANDROID_API_LEVEL }}
-          target: google_apis
-          arch: x86_64
-          force-avd-creation: false
-          emulator-options: ${{ env.EMULATOR_OPTIONS }}
-          disable-animations: false
-          script: echo "Generated AVD snapshot for caching."
       - name: Run Tests on Android Emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -307,7 +286,7 @@ jobs:
           target: google_apis
           arch: x86_64
           force-avd-creation: false
-          emulator-options: -no-snapshot-save ${{ env.EMULATOR_OPTIONS }}
+          emulator-options: -no-snapshot ${{ env.EMULATOR_OPTIONS }}
           disable-animations: true
           # logcat is the only place a native failure shows up -- the Appium
           # log just reports a webview that never got anywhere. The runner
