@@ -178,9 +178,9 @@ accepted, wherever in the app's storage the file is.
 
 In folder `./example` a full usage example is available. This example is also used for automated and manual testing.
 
-| Demo App | Native Audio Player |
-|---|---|
-| ![Demo App Screen](docs/demo-app-screen.png) | ![Native Audio Player (Android)](docs/native-audio-player.png) |
+| Example App | Android Media Controls | iOS Lock Screen |
+|---|---|---|
+| ![The example app playing the first item](docs/example-app.png) | ![The item in Android's notification shade](docs/android-player.png) | ![The item on the iOS lock screen](docs/ios-player.jpg) |
 
 ## NativeAudioPlayer behaviour overview
 
