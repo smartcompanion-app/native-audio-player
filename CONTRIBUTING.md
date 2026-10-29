@@ -118,6 +118,12 @@ npm run test:browser
 
 Chrome is launched with `--autoplay-policy=no-user-gesture-required`: the app seeks by dispatching `input` and `change` events, which carry no user gesture, so the resume `seekTo` promises would otherwise be refused.
 
+### README screenshots
+
+`docs/example-app.png` and `docs/android-player.png` are taken by driving the example app on the emulator, with the same setup as the Android run above and `npm run screenshots` in place of `npm run test:android`. The status bar is pinned to 9:41 with full bars first, so a retake only differs where the app does.
+
+`docs/ios-player.jpg` is taken by hand on a device: the simulator draws no Now Playing widget, neither on the lock screen nor in Control Center. Play an item in the example app, lock and wake the phone, and take a screenshot; it is scaled to 1080 pixels wide and saved as JPEG, since the lock screen wallpaper makes a PNG of it several megabytes.
+
 ## Changesets
 
 Any pull request that changes something users would notice needs a changeset — it is what produces the version bump and the `CHANGELOG.md` entry.

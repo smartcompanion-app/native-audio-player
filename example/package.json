@@ -16,6 +16,7 @@
     "test:android": "npx wdio run ./wdio.conf.js",
     "test:ios": "APPIUM_PLATFORM=ios npx wdio run ./wdio.conf.js",
     "test:browser": "APPIUM_PLATFORM=browser npx wdio run ./wdio.conf.js",
+    "screenshots": "npx wdio run ./screenshots.conf.js",
     "preview": "vite preview"
   },
   "dependencies": {
