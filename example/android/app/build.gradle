@@ -1,12 +1,18 @@
 apply plugin: 'com.android.application'
 
+def androidxAppCompatVersion = rootProject.ext.androidxAppCompatVersion
+def androidxCoordinatorLayoutVersion = rootProject.ext.androidxCoordinatorLayoutVersion
+def coreSplashScreenVersion = rootProject.ext.coreSplashScreenVersion
+def junitVersion = rootProject.ext.junitVersion
+def androidxJunitVersion = rootProject.ext.androidxJunitVersion
+def androidxEspressoCoreVersion = rootProject.ext.androidxEspressoCoreVersion
+
 android {
     namespace = "com.example.plugin"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
         applicationId "com.example.plugin"
         minSdkVersion rootProject.ext.minSdkVersion
-        targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
         versionName "1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
@@ -18,15 +24,13 @@ android {
     }
     buildTypes {
         release {
-            minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            // The e2e suite runs against this build, since R8 only runs here and a
+            // missing keep rule only shows up at runtime. Signed with the debug key
+            // so it installs without a keystore.
+            signingConfig = signingConfigs.debug
+            minifyEnabled true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
-    }
-}
-
-repositories {
-    flatDir{
-        dirs '../capacitor-cordova-android-plugins/src/main/libs', 'libs'
     }
 }
 
@@ -39,7 +43,6 @@ dependencies {
     testImplementation "junit:junit:$junitVersion"
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
     androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
-    implementation project(':capacitor-cordova-android-plugins')
 }
 
 apply from: 'capacitor.build.gradle'

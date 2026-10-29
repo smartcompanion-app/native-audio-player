@@ -29,9 +29,11 @@
 
 | Requirement | Version |
 | --- | --- |
-| Capacitor | 8.0.0 or later |
-| iOS | 15.0 or later |
-| Android | API level 24 (Android 7.0) or later |
+| Capacitor | 9.0.0 or later |
+| iOS | 16.0 or later |
+| Android | API level 26 (Android 8.0) or later |
+
+For Capacitor 8, use version 2.x of this plugin (`npm install @smartcompanion/native-audio-player@2`).
 
 ## Install
 

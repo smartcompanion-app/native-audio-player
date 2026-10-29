@@ -9,6 +9,7 @@
   "files": [
     "android/src/main/",
     "android/build.gradle",
+    "android/proguard-rules.pro",
     "dist/",
     "ios/Sources",
     "ios/Tests",
@@ -71,10 +72,10 @@
     "release": "npm run build && changeset publish"
   },
   "devDependencies": {
-    "@capacitor/android": "^8.5.3",
-    "@capacitor/core": "^8.5.3",
+    "@capacitor/android": "9.0.0-beta.0",
+    "@capacitor/core": "9.0.0-beta.0",
     "@capacitor/docgen": "^0.3.1",
-    "@capacitor/ios": "^8.5.3",
+    "@capacitor/ios": "9.0.0-beta.0",
     "@changesets/changelog-github": "^1.0.1",
     "@changesets/cli": "^3.0.3",
     "@ionic/eslint-config": "^0.5.0",
@@ -96,7 +97,7 @@
     "vitest": "^5.0.5"
   },
   "peerDependencies": {
-    "@capacitor/core": ">=8.0.0"
+    "@capacitor/core": ">=9.0.0-beta.0"
   },
   "prettier": "@ionic/prettier-config",
   "capacitor": {

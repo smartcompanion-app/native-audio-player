@@ -20,15 +20,15 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@capacitor/android": "^8.5.3",
-    "@capacitor/core": "^8.5.3",
-    "@capacitor/filesystem": "^8.1.4",
-    "@capacitor/ios": "^8.5.3",
-    "@capacitor/splash-screen": "^8.0.2",
+    "@capacitor/android": "9.0.0-beta.0",
+    "@capacitor/core": "9.0.0-beta.0",
+    "@capacitor/filesystem": "8.2.0-next.7",
+    "@capacitor/ios": "9.0.0-beta.0",
+    "@capacitor/splash-screen": "9.0.0-alpha.2",
     "@smartcompanion/native-audio-player": "file:.."
   },
   "devDependencies": {
-    "@capacitor/cli": "^8.5.3",
+    "@capacitor/cli": "9.0.0-beta.0",
     "@wdio/appium-service": "^10.0.2",
     "@wdio/cli": "^10.0.2",
     "@wdio/globals": "^10.0.2",
