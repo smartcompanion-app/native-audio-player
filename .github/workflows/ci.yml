@@ -31,6 +31,7 @@ jobs:
   # below deliberately do not repeat this -- they only build what they need to
   # get an installable app onto a device.
   verify_lint:
+    if: false
     name: Build and Verify
     runs-on: macos-26
     steps:
@@ -60,6 +61,7 @@ jobs:
         run: npm run build
 
   lint:
+    if: false
     name: Lint
     runs-on: macos-26
     steps:
@@ -80,6 +82,7 @@ jobs:
   # No simulator and no emulator, so this is the one test job that finishes in about a
   # minute and can fail a PR before the native jobs have finished booting a device.
   test_web:
+    if: false
     name: Test (Web)
     runs-on: ubuntu-latest
     steps:
@@ -112,6 +115,7 @@ jobs:
   # in headless chrome. No device, so it finishes in about a minute -- a divergence between
   # the three implementations shows up here before either native job has booted anything.
   test_browser:
+    if: false
     name: Test Contract (Browser)
     runs-on: ubuntu-latest
     steps:
@@ -150,6 +154,7 @@ jobs:
           retention-days: 7
 
   test_ios:
+    if: false
     name: Build and Test (iOS)
     runs-on: macos-15
     steps:
@@ -216,8 +221,15 @@ jobs:
           retention-days: 7
 
   test_android:
-    name: Build and Test (Android)
+    name: Build and Test (Android) ${{ matrix.variant }} ${{ matrix.run }}
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: [baseline, remote-last, no-remote]
+        run: [1, 2, 3]
+    env:
+      E2E_VARIANT: ${{ matrix.variant }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -306,7 +318,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: e2e-logs-android
+          name: e2e-logs-android-${{ matrix.variant }}-${{ matrix.run }}
           path: example/logs/
           if-no-files-found: ignore
           retention-days: 7

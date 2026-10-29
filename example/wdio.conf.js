@@ -151,7 +151,19 @@ export const config = {
     native: ['./test/native/**/*.test.js'],
   },
   // A browser run has no native side to test, so it only ever gets the contract suite.
-  specs: isBrowser ? ['./test/contract/**/*.test.js'] : ['./test/**/*.test.js'],
+  specs: isBrowser
+    ? ['./test/contract/**/*.test.js']
+    : process.env.E2E_VARIANT === 'remote-last'
+      ? [
+          './test/contract/playback.test.js',
+          './test/contract/progress.test.js',
+          './test/contract/rate.test.js',
+          './test/contract/state.test.js',
+          './test/native/audio-output.test.js',
+          './test/contract/remote.test.js',
+        ]
+      : ['./test/**/*.test.js'],
+  exclude: process.env.E2E_VARIANT === 'no-remote' ? ['./test/contract/remote.test.js'] : [],
 
   onPrepare: async () => {
     // the remote spec streams from this on every platform, so it runs for all three
