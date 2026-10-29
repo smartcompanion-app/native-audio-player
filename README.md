@@ -1,6 +1,6 @@
 # native-audio-player
 
-> Play native audio from a Capacitor app — in the background, from the lock screen, through the earpiece or the speaker.
+> Play native audio from a Capacitor app — streamed or from a file, in the background, from the lock screen, through the earpiece or the speaker.
 
 [![npm version](https://img.shields.io/npm/v/@smartcompanion/native-audio-player.svg)](https://www.npmjs.com/package/@smartcompanion/native-audio-player)
 [![npm downloads](https://img.shields.io/npm/dm/@smartcompanion/native-audio-player.svg)](https://www.npmjs.com/package/@smartcompanion/native-audio-player)
@@ -10,9 +10,12 @@
 
 ## ✨ Features
 
- - 🔈 Toggle between `Speaker` and `Earpiece` as audio output
- - 🎶 Audio keeps playing in the background, when app is minimized
- - 🔓 Native players in notifications and lock screens
+ - 🌐 Streams remote `http(s)` audio, or plays files from the app's storage
+ - 🎶 Playlists that keep playing in the background, when the app is minimized
+ - 🔓 Native players in the notification and on the lock screen, with artwork and controls
+ - ⏩ Playback speed from 0.5× to 2×, with the pitch kept so speech stays listenable
+ - 📊 A `progress` event for progress bars, and `getState()` to pick up where the player stands
+ - 🔈 Toggle between `Speaker` and `Earpiece` as audio output, and learn when headphones or Bluetooth take over
  - 📞 Stops for calls, Siri and headphones being unplugged — and tells the app, so its UI never drifts out of sync
  - 📱 Support for Android, iOS, Web (only Speaker)
 
@@ -95,10 +98,22 @@ await NativeAudioPlayer.previous();
 await NativeAudioPlayer.select({ id: 'leopard' });
 await NativeAudioPlayer.seekTo({ position: 30 }); // seconds
 
+await NativeAudioPlayer.setRate({ value: 1.5 }); // 0.5 to 2, pitch kept
+
 const { value: duration } = await NativeAudioPlayer.getDuration(); // seconds
 const { value: position } = await NativeAudioPlayer.getPosition(); // seconds
 
-// 4. Route the audio (no-op on the web)
+// What the player is doing right now, e.g. for a view that mounts after start():
+// { id, state: 'playing' | 'paused' | 'stopped', position, duration }
+const snapshot = await NativeAudioPlayer.getState();
+
+// 4. Follow the playhead. Reported while playing, twice a second unless start()
+//    was given another progressInterval (in seconds).
+const progressListener = await NativeAudioPlayer.addListener('progress', ({ id, position, duration }) => {
+  console.log(`${id}: ${position} of ${duration} seconds`);
+});
+
+// 5. Route the audio (no-op on the web)
 await NativeAudioPlayer.setEarpiece();
 await NativeAudioPlayer.setSpeaker();
 
@@ -116,8 +131,9 @@ const outputListener = await NativeAudioPlayer.addListener('audioOutputChange', 
   console.log(`audio now plays through the ${output}`);
 });
 
-// 5. Clean up — releases the player and removes the native player UI
+// 6. Clean up — releases the player and removes the native player UI
 await listener.remove();
+await progressListener.remove();
 await outputListener.remove();
 await NativeAudioPlayer.stop();
 ```
@@ -197,6 +213,8 @@ that actually happened, so a call that changes nothing stays silent.
 | `NativeAudioPlayer.previous`| `skipped` | | The previous audio item is selected or the last if the current is the first item. The position is set to 0 and playing is not started. |
 | `NativeAudioPlayer.select` | `skipped` | | The item is select (reject if selected id is not existing).  The position is set to 0 and playing is not started. |
 | `NativeAudioPlayer.stop` | `stopped` | | Reported whatever was happening, and no `paused` alongside it. Clears the playlist. Start is required before the audio player is usable again. |
+| `NativeAudioPlayer.setRate` | | | Changes the speed without changing the state, so nothing is reported. The rate belongs to the player: it carries across items, output changes, and `stop` followed by a new `start`. |
+| `NativeAudioPlayer.getState` | | | Asking changes nothing. Before `start` and after `stop` it answers `stopped` with an empty `id` and zero for both times. |
 | An item reaches its end | `completed` | | The player stops, the item stays selected and position is set to 0. (no separate pause event) |
 | `NativeAudioPlayer.setEarpiece` `NativeAudioPlayer.setSpeaker` | `paused` | `earpiece` `speaker` | Only overrides the built-in output, and does nothing audible while headphones or Bluetooth are connected — the output event then keeps reporting `external`. The built-in output starts on the speaker on both platforms |
 | The user plugs in headphones, connects Bluetooth, or unplugs them | `paused` | `external` `earpiece` `speaker` | Playback always stops, so audio meant for the earpiece cannot carry on out loud through a different output. |
@@ -214,6 +232,8 @@ Notes on the events themselves:
   for something else.
 - The player is never started again on its own. Whatever stopped it — an output change or an
   interruption — resuming is the app's decision, made by calling `play()`.
+- The `progress` event is separate from both and only reports while playing: it stops with
+  whatever is reported as stopping the playback above, and starts again with the next `playing`.
 
 ## Other Audio Player Plugins
 
