@@ -73,7 +73,10 @@ const iosCapability = {
 
 const androidCapability = {
   platformName: 'Android',
-  'appium:app': './android/app/build/outputs/apk/debug/app-debug.apk',
+  // The minified release build, not the debug one: R8 runs only for release, so a
+  // class it strips or renames is only caught here. capacitor.config.json keeps the
+  // webview debuggable so the tests can still attach to it.
+  'appium:app': './android/app/build/outputs/apk/release/app-release.apk',
   'appium:automationName': 'UiAutomator2',
   'appium:deviceName': 'Android',
   'appium:appPackage': 'com.example.plugin',

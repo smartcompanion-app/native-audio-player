@@ -2,6 +2,9 @@
   "appId": "com.example.plugin",
   "appName": "example",
   "webDir": "dist",
+  "android": {
+    "webContentsDebuggingEnabled": true
+  },
   "plugins": {
     "SplashScreen": {
       "launchShowDuration": 0

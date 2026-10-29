@@ -3,21 +3,20 @@ import PackageDescription
 
 let package = Package(
     name: "SmartcompanionNativeAudioPlayer",
-    platforms: [.iOS(.v15)],
+    platforms: [.iOS(.v16)],
     products: [
         .library(
             name: "SmartcompanionNativeAudioPlayer",
             targets: ["NativeAudioPlayerPlugin"])
     ],
     dependencies: [
-        .package(url: "https://github.com/ionic-team/capacitor-swift-pm.git", from: "8.0.0")
+        .package(name: "capacitor", path: "example/node_modules/@capacitor/ios")
     ],
     targets: [
         .target(
             name: "NativeAudioPlayerPlugin",
             dependencies: [
-                .product(name: "Capacitor", package: "capacitor-swift-pm"),
-                .product(name: "Cordova", package: "capacitor-swift-pm")
+                .product(name: "Capacitor", package: "capacitor")
             ],
             path: "ios/Sources/NativeAudioPlayerPlugin"),
         .testTarget(

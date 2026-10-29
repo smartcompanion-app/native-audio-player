@@ -7,6 +7,7 @@ This guide provides instructions for contributing to this Capacitor plugin.
 ### Local Setup
 
 1. Fork and clone the repo.
+1. Use Node.js 24 or later — the Capacitor 9 CLI refuses anything older.
 1. Install the dependencies.
 
     ```shell
@@ -95,6 +96,8 @@ The first run builds WebDriverAgent and takes several minutes; later runs take w
 ### Android
 
 Requires a running emulator (CI uses [`android-emulator-runner`](https://github.com/reactivecircus/android-emulator-runner) with API level 36).
+
+The suite installs the R8-minified **release** build (`app-release.apk`), not the debug one, so a class that R8 strips or renames fails a test instead of a user's release. `npm run build:android` builds both.
 
 ```shell
 npm install && npm run build       # in the repo root
