@@ -21,8 +21,6 @@ env:
   NODE_VERSION: 22
   JAVA_VERSION: 21
   ANDROID_API_LEVEL: 36
-  # Kept in sync between the snapshot and the test run -- the emulator only
-  # reuses a cached snapshot when it was created with the same options.
   EMULATOR_OPTIONS: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
 
 jobs:
@@ -267,27 +265,10 @@ jobs:
           key: chromedriver-${{ runner.os }}-${{ hashFiles('example/package-lock.json') }}
           restore-keys: |
             chromedriver-${{ runner.os }}-
-      # The emulator only reuses a snapshot that was created with the same
-      # options, so the key has to change when the workflow does.
-      - name: Cache AVD snapshot
-        uses: actions/cache@v6
-        id: avd-cache
-        with:
-          path: |
-            ~/.android/avd/*
-            ~/.android/adb*
-          key: avd-${{ env.ANDROID_API_LEVEL }}-google_apis-x86_64-${{ hashFiles('.github/workflows/ci.yml') }}
-      - name: Create AVD snapshot
-        if: steps.avd-cache.outputs.cache-hit != 'true'
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: ${{ env.ANDROID_API_LEVEL }}
-          target: google_apis
-          arch: x86_64
-          force-avd-creation: false
-          emulator-options: ${{ env.EMULATOR_OPTIONS }}
-          disable-animations: false
-          script: echo "Generated AVD snapshot for caching."
+      # The emulator boots cold every run. Booted from a snapshot restored out
+      # of the cache, it froze in a third of the runs -- five or six sessions
+      # in, adb stops answering and every command waits out its timeout. Cold
+      # boots froze in 1 of 18 (#80). It costs about three minutes a run.
       - name: Run Tests on Android Emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -295,7 +276,7 @@ jobs:
           target: google_apis
           arch: x86_64
           force-avd-creation: false
-          emulator-options: -no-snapshot-save ${{ env.EMULATOR_OPTIONS }}
+          emulator-options: -no-snapshot ${{ env.EMULATOR_OPTIONS }}
           disable-animations: true
           # logcat is the only place a native failure shows up -- the Appium
           # log just reports a webview that never got anywhere. The runner
