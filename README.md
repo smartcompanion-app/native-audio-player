@@ -57,7 +57,7 @@ await NativeAudioPlayer.start({
       id: 'elephant',
       title: 'Elephant',
       subtitle: 'Animals',
-      audioUri: elephantAudioUri, // local file URI, see below
+      audioUri: 'https://example.com/elephant.mp3', // or a local file, see below
       imageUri: elephantImageUri, // shown in the notification / lock screen
     },
     {
@@ -122,12 +122,20 @@ await outputListener.remove();
 await NativeAudioPlayer.stop();
 ```
 
-### Preparing local file URIs
+### Remote and local files
 
-On Android and iOS the player reads audio and images from the device, so remote
-files have to be downloaded once — for example with
-[`@capacitor/filesystem`](https://capacitorjs.com/docs/apis/filesystem) into
-`Directory.Data`. On the web you can pass the remote URL straight through:
+`audioUri` and `imageUri` take an `http(s)` URL as readily as a local file, on
+every platform. A remote item is streamed from where it is: `start()`, `next()`,
+`previous()` and `select()` answer once enough of it has arrived to know its
+duration, and reject when it cannot be loaded.
+
+Plain `http` is refused by default — by App Transport Security on iOS and by
+the cleartext policy on Android — so serve audio over `https`, or allow the
+host in the app's own configuration.
+
+For audio that should play without a connection, download it once — for
+example with [`@capacitor/filesystem`](https://capacitorjs.com/docs/apis/filesystem)
+into `Directory.Data` — and pass the local file URI instead:
 
 ```typescript
 import { Capacitor } from '@capacitor/core';
@@ -152,8 +160,8 @@ const toLocalUri = async (url: string, filename: string): Promise<string> => {
 const elephantAudioUri = await toLocalUri('https://example.com/elephant.mp3', 'elephant.mp3');
 ```
 
-On iOS the file is looked up by its filename in the app's documents directory,
-so keep the files flat in `Directory.Data` rather than in sub-folders.
+Both a `file://` URI, as `Filesystem.getUri()` returns it, and a plain path are
+accepted, wherever in the app's storage the file is.
 
 ### Good to know
 
@@ -283,6 +291,10 @@ start(options: StartOptions) => Promise<{ id: string; }>
 
 Initialize the audio player with a list of audio items.
 
+Resolves once the first item can be played, so its duration is known by then -- for a
+remote item that means once enough of it has arrived. Rejects when it cannot be loaded at
+all, a missing file or a URL that answers with an error, and leaves nothing loaded behind.
+
 | Param         | Type                                                  | Description                                  |
 | ------------- | ----------------------------------------------------- | -------------------------------------------- |
 | **`options`** | <code><a href="#startoptions">StartOptions</a></code> | - The options for starting the audio player. |
@@ -346,6 +358,8 @@ Select an audio item from the playlist by its id.
 
 Rejects when no item carries that id, rather than resolving with whatever was already
 selected -- a caller that asked for one item and silently got another has no way to tell.
+Otherwise it resolves once the item can be played, and rejects when it cannot be loaded, the
+same as start().
 
 | Param         | Type                         |
 | ------------- | ---------------------------- |
@@ -364,6 +378,9 @@ next() => Promise<{ id: string; }>
 
 Skip to the next audio item in the playlist.
 
+Resolves once the item can be played, and rejects when it cannot be loaded, the same as
+start().
+
 **Returns:** <code>Promise&lt;{ id: string; }&gt;</code>
 
 --------------------
@@ -376,6 +393,9 @@ previous() => Promise<{ id: string; }>
 ```
 
 Skip to the previous audio item in the playlist.
+
+Resolves once the item can be played, and rejects when it cannot be loaded, the same as
+start().
 
 **Returns:** <code>Promise&lt;{ id: string; }&gt;</code>
 
@@ -611,13 +631,13 @@ Options for starting the audio player.
 
 Represents an audio item in the playlist.
 
-| Prop           | Type                | Description                                                                         |
-| -------------- | ------------------- | ----------------------------------------------------------------------------------- |
-| **`id`**       | <code>string</code> | The unique identifier for the audio item.                                           |
-| **`title`**    | <code>string</code> | The title of the audio item, which is e.g. displayed in the notification player.    |
-| **`subtitle`** | <code>string</code> | The subtitle of the audio item, which is e.g. displayed in the notification player. |
-| **`audioUri`** | <code>string</code> | The local file URI of the audio file.                                               |
-| **`imageUri`** | <code>string</code> | The local file URI of the image associated with the audio item.                     |
+| Prop           | Type                | Description                                                                                                                                                                                                                                                                                                                                                            |
+| -------------- | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`id`**       | <code>string</code> | The unique identifier for the audio item.                                                                                                                                                                                                                                                                                                                              |
+| **`title`**    | <code>string</code> | The title of the audio item, which is e.g. displayed in the notification player.                                                                                                                                                                                                                                                                                       |
+| **`subtitle`** | <code>string</code> | The subtitle of the audio item, which is e.g. displayed in the notification player.                                                                                                                                                                                                                                                                                    |
+| **`audioUri`** | <code>string</code> | Where the audio is: a local file -- a `file://` URI, or a plain path -- or an `http(s)` URL to stream from. A remote item is played from where it is rather than downloaded first. Plain `http` is subject to the platform's rules for unencrypted traffic: App Transport Security on iOS and the cleartext policy on Android both refuse it unless the app allows it. |
+| **`imageUri`** | <code>string</code> | The image associated with the audio item, shown e.g. in the notification and on the lock screen. A local file or an `http(s)` URL, the same as {@link <a href="#item">Item.audioUri</a>}.                                                                                                                                                                              |
 
 
 #### AudioPlayerSnapshot

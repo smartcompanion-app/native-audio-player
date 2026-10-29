@@ -23,8 +23,11 @@ const writeAscii = (view: DataView, offset: number, text: string) => {
 /**
  * Builds a silent mono WAV of the given length. Silence still advances the media clock,
  * so `ended` fires on time even on a CI runner with no audio device.
+ *
+ * Plain bytes rather than a Blob, so the test server in vitest.config.mts can hand out the same
+ * file over HTTP.
  */
-export const createAudioFile = (seconds: number): Blob => {
+export const createAudioBytes = (seconds: number): ArrayBuffer => {
   const sampleCount = Math.floor(SAMPLE_RATE * seconds);
   const dataBytes = sampleCount * CHANNELS * (BITS_PER_SAMPLE / 8);
   const buffer = new ArrayBuffer(44 + dataBytes);
@@ -47,7 +50,14 @@ export const createAudioFile = (seconds: number): Blob => {
   view.setUint32(40, dataBytes, true);
   // the samples themselves are left at zero -- silence
 
-  return new Blob([buffer], { type: 'audio/wav' });
+  return buffer;
+};
+
+/**
+ * The same file as a Blob, for a blob URL the page can load without a server.
+ */
+export const createAudioFile = (seconds: number): Blob => {
+  return new Blob([createAudioBytes(seconds)], { type: 'audio/wav' });
 };
 
 const objectUrls: string[] = [];

@@ -97,12 +97,12 @@ class NativeAudioPlayerTests: PluginTestCase {
         var completed: [String] = []
         player.onCompleted = { completed.append($0) }
 
-        XCTAssertTrue(player.load())
+        XCTAssertTrue(load(player))
         player.seekTo(4)
         // the player quantises a seek to a sample boundary, so positions never compare exactly
         XCTAssertEqual(player.position, 4, accuracy: 0.05)
 
-        player.audioPlayerDidFinishPlaying(try XCTUnwrap(player.audioPlayer), successfully: true)
+        player.itemDidPlayToEnd()
 
         XCTAssertEqual(player.position, 0, accuracy: 0.05)
         XCTAssertEqual(completed, ["1"])
@@ -115,10 +115,10 @@ class NativeAudioPlayerTests: PluginTestCase {
         var completed: [String] = []
         player.onCompleted = { completed.append($0) }
 
-        XCTAssertTrue(player.load())
+        XCTAssertTrue(load(player))
         player.seekTo(4)
 
-        player.audioPlayerDidFinishPlaying(try XCTUnwrap(player.audioPlayer), successfully: false)
+        player.itemFailedToPlayToEnd()
 
         // nothing played out, so there is nothing to report and nothing to rewind
         XCTAssertEqual(player.position, 4, accuracy: 0.05)
@@ -149,11 +149,11 @@ class NativeAudioPlayerTests: PluginTestCase {
     }
 
     func testLoadFailsWithoutItems() {
-        XCTAssertFalse(NativeAudioPlayer([]).load())
+        XCTAssertFalse(load(NativeAudioPlayer([])))
     }
 
     func testLoadFailsForAnItemWithoutAnAudioUri() {
-        XCTAssertFalse(NativeAudioPlayer([["id": "1"]]).load())
+        XCTAssertFalse(load(NativeAudioPlayer([["id": "1"]])))
     }
 
     func testInitLockScreenIsANoOpWithoutItems() {
@@ -191,7 +191,7 @@ class NativeAudioPlayerTests: PluginTestCase {
     func testAFailedLoadLeavesTheConfiguredOutputAlone() {
         let player = NativeAudioPlayer([["id": "1", "audioUri": "file:///nothing/here.wav"]])
 
-        XCTAssertFalse(player.load())
+        XCTAssertFalse(load(player))
 
         // the retry that used to be here flipped the player to the earpiece and left it there,
         // so the next item that did load played out of it
@@ -202,7 +202,7 @@ class NativeAudioPlayerTests: PluginTestCase {
         let player = NativeAudioPlayer([["id": "1", "audioUri": "file:///nothing/here.wav"]])
         player.earpiece = true
 
-        XCTAssertFalse(player.load())
+        XCTAssertFalse(load(player))
 
         XCTAssertTrue(player.earpiece)
     }
@@ -253,7 +253,7 @@ class NativeAudioPlayerTests: PluginTestCase {
         var interruptions = 0
         player.onInterrupted = { interruptions += 1 }
 
-        XCTAssertTrue(player.load())
+        XCTAssertTrue(load(player))
         player.observeInterruptions()
         player.play()
         XCTAssertTrue(player.playWhenReady)
@@ -262,7 +262,7 @@ class NativeAudioPlayerTests: PluginTestCase {
 
         XCTAssertEqual(interruptions, 1)
         XCTAssertFalse(player.playWhenReady)
-        XCTAssertEqual(player.audioPlayer?.isPlaying, false)
+        XCTAssertEqual(player.isPlaying, false)
     }
 
     func testAnInterruptionOfAPausedPlayerReportsNothing() throws {
@@ -271,7 +271,7 @@ class NativeAudioPlayerTests: PluginTestCase {
         var interruptions = 0
         player.onInterrupted = { interruptions += 1 }
 
-        XCTAssertTrue(player.load())
+        XCTAssertTrue(load(player))
         player.observeInterruptions()
 
         // nothing was playing, so nothing was interrupted -- a state is reported per change,
@@ -287,7 +287,7 @@ class NativeAudioPlayerTests: PluginTestCase {
         var interruptions = 0
         player.onInterrupted = { interruptions += 1 }
 
-        XCTAssertTrue(player.load())
+        XCTAssertTrue(load(player))
         player.observeInterruptions()
         player.play()
 
@@ -298,7 +298,7 @@ class NativeAudioPlayerTests: PluginTestCase {
 
         XCTAssertEqual(interruptions, 1)
         XCTAssertFalse(player.playWhenReady)
-        XCTAssertEqual(player.audioPlayer?.isPlaying, false)
+        XCTAssertEqual(player.isPlaying, false)
     }
 
     /// Only that play() still starts the player once the session was taken away. Whether the
@@ -310,7 +310,7 @@ class NativeAudioPlayerTests: PluginTestCase {
         let audio = try writeAudioFile(at: "deactivated.wav", seconds: 5)
         let player = NativeAudioPlayer([["id": "1", "audioUri": audio.absoluteString]])
 
-        XCTAssertTrue(player.load())
+        XCTAssertTrue(load(player))
 
         // what an interruption leaves behind when the reactivation at the end of it did not
         // get the session back
@@ -318,7 +318,7 @@ class NativeAudioPlayerTests: PluginTestCase {
 
         player.play()
 
-        XCTAssertEqual(player.audioPlayer?.isPlaying, true)
+        XCTAssertEqual(player.isPlaying, true)
         XCTAssertTrue(player.playWhenReady)
     }
 
@@ -328,7 +328,7 @@ class NativeAudioPlayerTests: PluginTestCase {
         var interruptions = 0
         player.onInterrupted = { interruptions += 1 }
 
-        XCTAssertTrue(player.load())
+        XCTAssertTrue(load(player))
         player.observeInterruptions()
         player.play()
 

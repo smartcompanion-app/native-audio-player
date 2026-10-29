@@ -70,20 +70,35 @@ public class NativeAudioPlayerPlugin: CAPPlugin, CAPBridgedPlugin {
             self?.onInterrupted()
         }
 
-        if player.load() {
-            player.observeAudioOutput()
-            player.observeInterruptions()
+        // answered once the first item can be played, so its duration is known by the time the
+        // app hears back -- or once it is known that it never will be
+        let started = player
+        started.load { [weak self, weak started] loaded in
+            // a later start() replaced this player before its item settled, and answers for itself
+            guard let self, let started, started === self.player else {
+                call.reject("could not load audio items")
+                return
+            }
 
-            installRemoteCommandTargets()
+            if loaded {
+                started.observeAudioOutput()
+                started.observeInterruptions()
 
-            call.resolve([
-                "id": player.currentId
-            ])
-        } else {
-            // the player this start() replaced is gone, so its handlers must not stay
-            // on the process-wide command center and drive a player nobody can reach
-            removeRemoteCommandTargets()
-            call.reject("could not load audio items")
+                self.installRemoteCommandTargets()
+
+                call.resolve([
+                    "id": started.currentId
+                ])
+            } else {
+                // nothing was loaded after all, so nothing is left behind to play: getState()
+                // reports stopped, and play() refuses the way it does before any start()
+                started.stop()
+
+                // the player this start() replaced is gone, so its handlers must not stay
+                // on the process-wide command center and drive a player nobody can reach
+                self.removeRemoteCommandTargets()
+                call.reject("could not load audio items")
+            }
         }
     }
 
@@ -129,7 +144,7 @@ public class NativeAudioPlayerPlugin: CAPPlugin, CAPBridgedPlugin {
         //
         // stop() reports stopped whatever was happening, since clearing the playlist is a
         // change either way, and so it does not come through here.
-        if player.audioPlayer?.isPlaying == true {
+        if player.isPlaying {
             onPause()
         }
 
@@ -139,27 +154,36 @@ public class NativeAudioPlayerPlugin: CAPPlugin, CAPBridgedPlugin {
     @objc func select(_ call: CAPPluginCall) {
         let id = call.getString("id") ?? ""
 
-        if player.select(id) {
-            self.notifyListeners("audioPlayerChange", data: ["id": player.currentId, "state": "skipped"])
-            call.resolve(["id": player.currentId])
-        } else {
-            call.reject("could not switch to item with given id")
+        player.select(id) { [weak self] loaded in
+            guard let self, loaded else {
+                call.reject("could not switch to item with given id")
+                return
+            }
+
+            self.notifyListeners("audioPlayerChange", data: ["id": self.player.currentId, "state": "skipped"])
+            call.resolve(["id": self.player.currentId])
         }
     }
 
     @objc func next(_ call: CAPPluginCall) {
-        if onNext() {
-            call.resolve(["id": player.currentId])
-        } else {
-            call.reject("could not switch to next item")
+        onNext { [weak self] loaded in
+            guard let self, loaded else {
+                call.reject("could not switch to next item")
+                return
+            }
+
+            call.resolve(["id": self.player.currentId])
         }
     }
 
     @objc func previous(_ call: CAPPluginCall) {
-        if onPrevious() {
-            call.resolve(["id": player.currentId])
-        } else {
-            call.reject("could not switch to previous item")
+        onPrevious { [weak self] loaded in
+            guard let self, loaded else {
+                call.reject("could not switch to previous item")
+                return
+            }
+
+            call.resolve(["id": self.player.currentId])
         }
     }
 
@@ -180,7 +204,7 @@ public class NativeAudioPlayerPlugin: CAPPlugin, CAPBridgedPlugin {
     /// through a command handler rather than through seekTo above, and while it did the work
     /// itself it dropped the resume and the playing event that the contract promises.
     func onSeekTo(_ position: TimeInterval) {
-        let wasPlaying = player.audioPlayer?.isPlaying == true
+        let wasPlaying = player.isPlaying
 
         player.seekTo(position)
 
@@ -203,14 +227,14 @@ public class NativeAudioPlayerPlugin: CAPPlugin, CAPBridgedPlugin {
     /// playlist outlives stop() on the player, so it is the missing audio player that says
     /// nothing is loaded -- currentId would still name the item that was.
     @objc func getState(_ call: CAPPluginCall) {
-        guard let audioPlayer = player.audioPlayer else {
+        guard player.audioPlayer != nil else {
             call.resolve(["id": "", "state": "stopped", "position": 0.0, "duration": 0.0])
             return
         }
 
         call.resolve([
             "id": player.currentId,
-            "state": audioPlayer.isPlaying ? "playing" : "paused",
+            "state": player.isPlaying ? "playing" : "paused",
             "position": player.position,
             "duration": player.duration
         ])
@@ -241,7 +265,7 @@ public class NativeAudioPlayerPlugin: CAPPlugin, CAPBridgedPlugin {
             return
         }
 
-        // switching the output reloads the player, which leaves it paused
+        // switching the output pauses, see setEarpiece in definitions.ts
         self.notifyListeners("audioPlayerChange", data: ["id": player.currentId, "state": "paused"])
         player.setEarpiece()
         call.resolve()

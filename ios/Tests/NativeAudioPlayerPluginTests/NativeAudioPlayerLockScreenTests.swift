@@ -11,7 +11,7 @@ class NativeAudioPlayerLockScreenTests: PluginTestCase {
         let image = try writeImageFile(at: "meta.png")
         let plugin = RecordingPlugin()
 
-        plugin.start(CallRecorder().makeCall(["items": [item(id: "1", audio: audio, image: image)]]))
+        answer(plugin.start, ["items": [item(id: "1", audio: audio, image: image)]])
 
         let info = MPNowPlayingInfoCenter.default().nowPlayingInfo
         XCTAssertEqual(info?[MPMediaItemPropertyTitle] as? String, "Title 1")
@@ -26,7 +26,7 @@ class NativeAudioPlayerLockScreenTests: PluginTestCase {
         let plugin = RecordingPlugin()
         let recorder = CallRecorder()
 
-        plugin.start(recorder.makeCall(["items": [item(id: "1", audio: audio)]]))
+        answer(plugin.start, ["items": [item(id: "1", audio: audio)]], with: recorder)
 
         XCTAssertNil(recorder.rejected)
         let info = MPNowPlayingInfoCenter.default().nowPlayingInfo
@@ -47,7 +47,7 @@ class NativeAudioPlayerLockScreenTests: PluginTestCase {
         let audio = try writeAudioFile(at: "state.wav")
         let plugin = RecordingPlugin()
 
-        plugin.start(CallRecorder().makeCall(["items": [item(id: "1", audio: audio)]]))
+        answer(plugin.start, ["items": [item(id: "1", audio: audio)]])
 
         let info = MPNowPlayingInfoCenter.default().nowPlayingInfo
         XCTAssertEqual(info?[MPNowPlayingInfoPropertyPlaybackRate] as? Double, 0.0)
@@ -60,7 +60,7 @@ class NativeAudioPlayerLockScreenTests: PluginTestCase {
         let audio = try writeAudioFile(at: "paused.wav")
         let plugin = RecordingPlugin()
 
-        plugin.start(CallRecorder().makeCall(["items": [item(id: "1", audio: audio)]]))
+        answer(plugin.start, ["items": [item(id: "1", audio: audio)]])
         plugin.play(CallRecorder().makeCall())
         plugin.pause(CallRecorder().makeCall())
 
@@ -72,7 +72,7 @@ class NativeAudioPlayerLockScreenTests: PluginTestCase {
         let audio = try writeAudioFile(at: "seek.wav", seconds: 5)
         let plugin = RecordingPlugin()
 
-        plugin.start(CallRecorder().makeCall(["items": [item(id: "1", audio: audio)]]))
+        answer(plugin.start, ["items": [item(id: "1", audio: audio)]])
         plugin.seekTo(CallRecorder().makeCall(["position": 3]))
 
         let info = MPNowPlayingInfoCenter.default().nowPlayingInfo
@@ -88,7 +88,7 @@ class NativeAudioPlayerLockScreenTests: PluginTestCase {
         let audio = try writeAudioFile(at: "remote-seek.wav", seconds: 5)
         let plugin = RecordingPlugin()
 
-        plugin.start(CallRecorder().makeCall(["items": [item(id: "1", audio: audio)]]))
+        answer(plugin.start, ["items": [item(id: "1", audio: audio)]])
         XCTAssertEqual(plugin.states, [], "start must not play on its own")
 
         plugin.onSeekTo(3)
@@ -105,7 +105,7 @@ class NativeAudioPlayerLockScreenTests: PluginTestCase {
         let audio = try writeAudioFile(at: "remote-seek-playing.wav", seconds: 5)
         let plugin = RecordingPlugin()
 
-        plugin.start(CallRecorder().makeCall(["items": [item(id: "1", audio: audio)]]))
+        answer(plugin.start, ["items": [item(id: "1", audio: audio)]])
         plugin.play(CallRecorder().makeCall())
         let afterPlay = plugin.states
 
@@ -119,12 +119,12 @@ class NativeAudioPlayerLockScreenTests: PluginTestCase {
         let second = try writeAudioFile(at: "second.wav", seconds: 5)
         let plugin = RecordingPlugin()
 
-        plugin.start(CallRecorder().makeCall(["items": [
+        answer(plugin.start, ["items": [
             item(id: "1", audio: first),
             item(id: "2", audio: second)
-        ]]))
+        ]])
         plugin.seekTo(CallRecorder().makeCall(["position": 3]))
-        plugin.next(CallRecorder().makeCall())
+        answer(plugin.next)
 
         // next() deliberately leaves the player paused, so the controls have to say so
         // rather than show the new item running from where the old one stopped
@@ -138,7 +138,7 @@ class NativeAudioPlayerLockScreenTests: PluginTestCase {
         let audio = try writeAudioFile(at: "clear.wav")
         let plugin = RecordingPlugin()
 
-        plugin.start(CallRecorder().makeCall(["items": [item(id: "1", audio: audio)]]))
+        answer(plugin.start, ["items": [item(id: "1", audio: audio)]])
         XCTAssertNotNil(MPNowPlayingInfoCenter.default().nowPlayingInfo)
 
         plugin.stop(CallRecorder().makeCall())
@@ -170,7 +170,10 @@ class NativeAudioPlayerLockScreenTests: PluginTestCase {
             command.isEnabled = true
         }
 
-        RecordingPlugin().start(CallRecorder().makeCall(["items": [item(id: "1", audio: audio)]]))
+        // kept in a constant rather than started as a temporary: loading finishes after the
+        // statement that started it, and a temporary would be gone by then
+        let plugin = RecordingPlugin()
+        answer(plugin.start, ["items": [item(id: "1", audio: audio)]])
 
         for command in unhandled {
             XCTAssertFalse(command.isEnabled, "\(command) is offered with nothing to answer it")
@@ -181,7 +184,10 @@ class NativeAudioPlayerLockScreenTests: PluginTestCase {
         let audio = try writeAudioFile(at: "handled.wav")
         let commandCenter = MPRemoteCommandCenter.shared()
 
-        RecordingPlugin().start(CallRecorder().makeCall(["items": [item(id: "1", audio: audio)]]))
+        // kept in a constant rather than started as a temporary: loading finishes after the
+        // statement that started it, and a temporary would be gone by then
+        let plugin = RecordingPlugin()
+        answer(plugin.start, ["items": [item(id: "1", audio: audio)]])
 
         XCTAssertTrue(commandCenter.playCommand.isEnabled)
         XCTAssertTrue(commandCenter.pauseCommand.isEnabled)
